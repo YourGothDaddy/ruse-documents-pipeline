@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+.env
+data/raw/*.json
+airflow_home/
+.DS_Store
