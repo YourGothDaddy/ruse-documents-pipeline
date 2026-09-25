@@ -161,7 +161,6 @@ def main():
 
     category_slugs = {
         "naredbi": "наредби",
-        "reshenia": "решения",
         "protokoli": "протоколи",
     }
 
@@ -169,8 +168,8 @@ def main():
         results = scrape_category(slug, key, max_pages=3)
         all_results.extend(results)
 
-        reshenia_results = scrape_reshenia(max_pages=3)
-        all_results.extend(reshenia_results)
+    reshenia_results = scrape_reshenia(max_pages=3)
+    all_results.extend(reshenia_results)
 
     os.makedirs("data/raw", exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
