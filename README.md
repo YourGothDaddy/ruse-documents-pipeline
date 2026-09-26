@@ -4,9 +4,16 @@ A data pipeline that scrapes public municipal documents from the Ruse Municipal 
 
 ![Dashboard screenshot](screenshots/dashboard.png)
 
+## Live Demo
+
+Dashboard: https://ruse-documents-pipeline.vercel.app
+API: https://ruse-documents-pipeline.onrender.com/api/stats
+
+The API runs on Render's free tier, which spins down after periods of inactivity. The first request after idle time can take thirty to sixty seconds to respond while it wakes up, this is a known characteristic of free hosting, not a bug.
+
 ## What This Project Is
 
-Ruse municipality publishes regulations, council decisions, and meeting minutes on its website, but the site has no unified search, inconsistent file formats, and documents scattered across multiple content types. This project builds a small, scheduled pipeline that pulls this data automatically, cleans it, and makes it searchable in one place.
+Ruse municipality publishes regulations, council decisions, and meeting minutes on its website, but the site has no unified search, inconsistent file formats, and documents scattered across multiple content types. This project builds a pipeline that pulls this data, cleans it, and makes it searchable in one place.
 
 This is a Data Engineering portfolio project. The focus is the pipeline itself, extraction, transformation, orchestration, and storage, not the dashboard, which is intentionally simple.
 
@@ -20,17 +27,17 @@ Ruse Council Site (obs.ruse-bg.eu)
         v
 Raw storage: local JSON files, one per scrape run
         |
-   Orchestration: Airflow DAG, scheduled weekly
+   Orchestration: Airflow DAG
         |
    Transform: clean titles, parse dates, detect status, deduplicate
         |
         v
    Load: PostgreSQL, star schema
         |
-   API: FastAPI backend reading from Postgres
+   API: FastAPI backend reading from Postgres, deployed on Render
         |
         v
-   Frontend: static dashboard, live search and filters
+   Frontend: static dashboard on Vercel, live search, filters, and pagination
 ```
 
 ## Data Source Handling
@@ -43,6 +50,12 @@ Real inconsistencies handled by the pipeline:
 - File attachments in doc, docx, and pdf formats, and some documents with no attachment at all
 - Regulation titles that embed their repeal status as free text rather than structured data, for example a title containing "Отменена с Решение № 1017"
 - Duplicate entries caused by the site rendering the same document in both a main list and a sidebar widget
+
+## Known Limitations
+
+- Status detection, active versus repealed, currently only works reliably for Наредби, since that category's titles follow a consistent phrasing pattern the detector recognizes. Решения and Протоколи default to active, since nothing in the current logic classifies them.
+- A full historical scrape of Решения runs several hundred sequential requests to the source site and can occasionally hit a connection timeout partway through. Retry logic handles transient failures, but a full run is not perfectly reliable end to end every time.
+- The API allows requests from any origin. Acceptable for a small public read only dataset like this, but worth noting as a deliberate simplification rather than an oversight.
 
 ## Database Schema
 
@@ -60,10 +73,10 @@ active, repealed, unknown
 ## Tech Stack
 
 - Python, requests and BeautifulSoup for extraction
-- PostgreSQL for storage
+- PostgreSQL for storage, Neon for the hosted production database
 - Apache Airflow for scheduling and orchestration
-- FastAPI for the backend API
-- Plain HTML, CSS, and JavaScript for the dashboard, no framework
+- FastAPI for the backend API, deployed on Render
+- Plain HTML, CSS, and JavaScript for the dashboard, no framework, deployed on Vercel
 
 ## Running This Locally
 
@@ -76,8 +89,10 @@ git clone https://github.com/YourGothDaddy/ruse-documents-pipeline.git
 cd ruse-documents-pipeline
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
+
+`requirements-dev.txt` includes everything needed for local development, extraction, transformation, loading, and Airflow. The deployed API on Render uses a separate, smaller file, `requirements-api.txt`, containing only what the API itself needs.
 
 Create a `.env` file with your database credentials.
 
@@ -94,9 +109,7 @@ Create the database and run the schema.
 psql -U ruse_pipeline -d ruse_documents -h localhost -f sql/schema.sql
 ```
 
-Run the pipeline manually, or through Airflow.
-
-Manual run, one step at a time:
+Run the pipeline manually, one step at a time:
 
 ```bash
 python3 src/extract/scraper.py
@@ -104,33 +117,28 @@ python3 src/transform/clean.py
 python3 src/load/load.py
 ```
 
-Through Airflow, scheduled weekly:
-
-```bash
-export AIRFLOW_HOME=~/projects/ruse-documents/airflow_home
-airflow standalone
-```
-
-Then trigger `ruse_documents_pipeline` from the Airflow UI at localhost:8080.
-
 Run the API:
 
 ```bash
-cd src/api
-uvicorn main:app --reload --port 8000
+cd ~/projects/ruse-documents
+uvicorn src.api.main:app --reload --port 8000
 ```
 
-Open `frontend/index.html` in a browser while the API is running.
+Serve the frontend through a local web server rather than opening the file directly, since browsers apply extra restrictions to pages loaded via a raw file path.
+
+```bash
+cd frontend
+python3 -m http.server 5500
+```
+
+Open `http://localhost:5500`. By default the frontend points at the live Render API, edit `API_BASE` in `frontend/index.html` if you want it to talk to your local API instead.
 
 ## Planned: V2
 
-The current version scrapes a limited slice of each document category to prove the pipeline end to end. Planned next steps:
-
-- Full historical scraping across all categories, not a limited sample
 - Full text extraction from document files, including OCR for scanned documents
-- Public deployment, frontend on Vercel, database on Neon, API on Render
 - Full text search across document contents, not just titles
-- Status detection expanded beyond Наредби, currently only that category's titles follow a phrasing pattern the detector recognizes
+- Status detection expanded beyond Наредби
+- More resilient full archive scraping for Решения, to handle the occasional timeout without requiring a manual rerun
 
 ## Project Structure
 
