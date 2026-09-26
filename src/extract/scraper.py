@@ -179,6 +179,7 @@ def main():
         json.dump(all_results, f, ensure_ascii=False, indent=2)
 
     print(f"Saved {len(all_results)} documents to {output_path}")
+    return output_path
 
 
 if __name__ == "__main__":

@@ -54,13 +54,14 @@ def upsert_document(conn, doc, category_map, status_map):
         ))
 
 
-def main():
-    processed_files = sorted(glob.glob("data/processed/clean_*.json"))
-    latest_file = processed_files[-1]
+def main(input_path=None):
+    if input_path is None:
+        processed_files = sorted(glob.glob("data/processed/clean_*.json"))
+        input_path = processed_files[-1]
 
-    print(f"Loading {latest_file}")
+    print(f"Loading {input_path}")
 
-    with open(latest_file, encoding="utf-8") as f:
+    with open(input_path, encoding="utf-8") as f:
         documents = json.load(f)
 
     conn = get_connection()
@@ -81,7 +82,6 @@ def main():
 
     finally:
         conn.close()
-
 
 if __name__ == "__main__":
     main()

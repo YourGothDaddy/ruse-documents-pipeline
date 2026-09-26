@@ -93,13 +93,14 @@ def deduplicate(documents):
     return unique_documents
 
 
-def main():
-    raw_files = sorted(glob.glob("data/raw/scrape_*.json"))
-    latest_file = raw_files[-1]
+def main(input_path=None):
+    if input_path is None:
+        raw_files = sorted(glob.glob("data/raw/scrape_*.json"))
+        input_path = raw_files[-1]
 
-    print(f"Reading {latest_file}")
+    print(f"Reading {input_path}")
 
-    with open(latest_file, encoding="utf-8") as f:
+    with open(input_path, encoding="utf-8") as f:
         raw_documents = json.load(f)
 
     transformed = [transform_document(doc) for doc in raw_documents]
@@ -112,13 +113,13 @@ def main():
     print(f"Missing dates: {missing_dates}")
     print(f"Repealed: {repealed_count}")
 
-    output_path = latest_file.replace("data/raw/scrape_", "data/processed/clean_")
+    output_path = input_path.replace("data/raw/scrape_", "data/processed/clean_")
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(transformed, f, ensure_ascii=False, indent=2)
 
     print(f"Saved to {output_path}")
-
+    return output_path
 
 if __name__ == "__main__":
     main()
