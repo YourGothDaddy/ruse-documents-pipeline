@@ -81,6 +81,26 @@
     color: #1a56db;
     text-decoration: none;
   }
+
+  .document-title-link {
+  color: #222;
+  text-decoration: none;
+}
+.document-title-link:hover {
+  text-decoration: underline;
+}
+.download-link {
+  background: #eef2ff;
+  color: #1a56db;
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-weight: 600;
+  font-size: 12px;
+}
+.no-file {
+  color: #999;
+  font-style: italic;
+}
 </style>
 </head>
 <body>
@@ -168,16 +188,20 @@ async function loadDocuments() {
     const statusClass = doc.status === "repealed" ? "status-repealed" : "status-active";
     const statusLabel = doc.status === "repealed" ? "Отменена" : "Активна";
     const fileLink = doc.file_url
-      ? `<a href="${doc.file_url}" target="_blank">Изтегли (${doc.file_type})</a>`
-      : "Няма прикачен файл";
+      ? `<a href="${doc.file_url}" target="_blank" class="download-link">Изтегли файл (${doc.file_type})</a>`
+      : `<span class="no-file">Няма прикачен файл</span>`;
+
+    const titleHtml = doc.detail_url
+      ? `<a href="${doc.detail_url}" target="_blank" class="document-title-link">${doc.title}</a>`
+      : doc.title;
 
     div.innerHTML = `
-      <div class="document-title">${doc.title}</div>
+      <div class="document-title">${titleHtml}</div>
       <div class="document-meta">
         <span>${doc.category}</span>
         <span>${doc.publish_date || "Няма дата"}</span>
         <span class="${statusClass}">${statusLabel}</span>
-        <span>${fileLink}</span>
+        ${fileLink}
       </div>
     `;
     container.appendChild(div);
