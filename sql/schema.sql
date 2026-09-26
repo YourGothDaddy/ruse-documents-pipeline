@@ -18,7 +18,8 @@ CREATE TABLE documents (
     file_type TEXT,
     file_size_kb INTEGER,
     source_url TEXT NOT NULL,
-    scraped_at TIMESTAMP NOT NULL DEFAULT NOW()
+    scraped_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT unique_doc UNIQUE (source_url, title)
 );
 
 INSERT INTO categories (name) VALUES
