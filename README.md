@@ -33,17 +33,9 @@ Raw storage: local JSON files, one per scrape run
    Frontend: static dashboard, live search and filters
 ```
 
-## Why No Kafka or Spark
-
-New documents appear a handful of times per week, not continuously. This is a batch problem, and a scheduled Airflow DAG handles it correctly. Kafka is built for continuous, real time event streams, using it here would be forcing a tool where it does not belong.
-
-The dataset is small, hundreds of documents, not millions of rows. Plain Python and Postgres handle this comfortably. Spark exists to distribute processing across many machines when data does not fit on one, that is not the situation here.
-
-Knowing when a tool does not apply is as important as knowing how to use it.
-
 ## Data Source Handling
 
-The site is a WordPress installation, but different document categories use different underlying structures. Regulations and meeting minutes use a custom document post type with consistent HTML classes. Council decisions use a separate WordPress category with no matching HTML structure, instead exposing clean JSON-LD structured data embedded in the page, which the scraper parses directly.
+Regulations and meeting minutes use a custom document post type with consistent HTML classes. Council decisions use a separate category with no matching HTML structure, instead exposing clean JSON-LD structured data embedded in the page, which the scraper parses directly.
 
 Real inconsistencies handled by the pipeline:
 
@@ -138,6 +130,7 @@ The current version scrapes a limited slice of each document category to prove t
 - Full text extraction from document files, including OCR for scanned documents
 - Public deployment, frontend on Vercel, database on Neon, API on Render
 - Full text search across document contents, not just titles
+- Status detection expanded beyond Наредби, currently only that category's titles follow a phrasing pattern the detector recognizes
 
 ## Project Structure
 
