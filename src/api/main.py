@@ -86,7 +86,7 @@ def get_documents(category: str = None, status: str = None, search: str = None, 
         select_query = f"""
             SELECT documents.id, documents.title, categories.name AS category,
                    statuses.name AS status, documents.publish_date,
-                   documents.file_url, documents.file_type
+                   documents.file_url, documents.file_type, documents.detail_url
             {base_query}
             ORDER BY documents.publish_date DESC
             LIMIT %s OFFSET %s
