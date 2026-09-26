@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import date, timedelta
 
-from db import get_connection
+from src.api.db import get_connection
 
 app = FastAPI(title="Ruse Documents API")
 
