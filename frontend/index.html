@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<title>Документи на Община Русе</title>
+<style>
+  body {
+    font-family: -apple-system, Arial, sans-serif;
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 0 20px;
+    background: #f7f7f7;
+    color: #222;
+  }
+  h1 {
+    font-size: 22px;
+  }
+  .stats {
+    display: flex;
+    gap: 16px;
+    margin: 24px 0;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    background: white;
+    border-radius: 8px;
+    padding: 16px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    flex: 1;
+    min-width: 140px;
+  }
+  .stat-number {
+    font-size: 28px;
+    font-weight: bold;
+  }
+  .stat-label {
+    font-size: 13px;
+    color: #666;
+  }
+  .filters {
+    display: flex;
+    gap: 10px;
+    margin: 24px 0;
+    flex-wrap: wrap;
+  }
+  input, select {
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+  }
+  .document {
+    background: white;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .document-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .document-meta {
+    font-size: 13px;
+    color: #666;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .status-repealed {
+    color: #b00020;
+  }
+  .status-active {
+    color: #1a7a1a;
+  }
+  a {
+    color: #1a56db;
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+
+<h1>Документи на Община Русе</h1>
+
+<div class="stats" id="stats"></div>
+
+<div class="filters">
+  <input type="text" id="search" placeholder="Търсене по заглавие...">
+  <select id="category"><option value="">Всички категории</option></select>
+  <select id="status">
+    <option value="">Всички статуси</option>
+    <option value="active">Активни</option>
+    <option value="repealed">Отменени</option>
+  </select>
+</div>
+
+<div id="documents"></div>
+
+<script>
+const API_BASE = "http://localhost:8000";
+
+async function loadStats() {
+  const res = await fetch(`${API_BASE}/api/stats`);
+  const data = await res.json();
+
+  const statsDiv = document.getElementById("stats");
+  statsDiv.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-number">${data.total_documents}</div>
+      <div class="stat-label">Общо документи</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">${data.documents_last_30_days}</div>
+      <div class="stat-label">Последните 30 дни</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">${data.by_status.find(s => s.name === "repealed")?.count || 0}</div>
+      <div class="stat-label">Отменени</div>
+    </div>
+  `;
+
+  const categorySelect = document.getElementById("category");
+  data.by_category.forEach(cat => {
+    const option = document.createElement("option");
+    option.value = cat.name;
+    option.textContent = `${cat.name} (${cat.count})`;
+    categorySelect.appendChild(option);
+  });
+}
+
+async function loadDocuments() {
+  const search = document.getElementById("search").value;
+  const category = document.getElementById("category").value;
+  const status = document.getElementById("status").value;
+
+  const params = new URLSearchParams();
+  if (search) params.append("search", search);
+  if (category) params.append("category", category);
+  if (status) params.append("status", status);
+  params.append("limit", "50");
+
+  const res = await fetch(`${API_BASE}/api/documents?${params}`);
+  const documents = await res.json();
+
+  const container = document.getElementById("documents");
+  container.innerHTML = "";
+
+  if (documents.length === 0) {
+    container.innerHTML = "<p>Няма намерени документи.</p>";
+    return;
+  }
+
+  documents.forEach(doc => {
+    const div = document.createElement("div");
+    div.className = "document";
+
+    const statusClass = doc.status === "repealed" ? "status-repealed" : "status-active";
+    const statusLabel = doc.status === "repealed" ? "Отменена" : "Активна";
+    const fileLink = doc.file_url
+      ? `<a href="${doc.file_url}" target="_blank">Изтегли (${doc.file_type})</a>`
+      : "Няма прикачен файл";
+
+    div.innerHTML = `
+      <div class="document-title">${doc.title}</div>
+      <div class="document-meta">
+        <span>${doc.category}</span>
+        <span>${doc.publish_date || "Няма дата"}</span>
+        <span class="${statusClass}">${statusLabel}</span>
+        <span>${fileLink}</span>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+document.getElementById("search").addEventListener("input", debounce(loadDocuments, 300));
+document.getElementById("category").addEventListener("change", loadDocuments);
+document.getElementById("status").addEventListener("change", loadDocuments);
+
+function debounce(fn, delay) {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
+loadStats();
+loadDocuments();
+</script>
+
+</body>
+</html>
