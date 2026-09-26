@@ -70,7 +70,7 @@ def parse_documents(html, category_key, source_url):
     return documents
 
 
-def scrape_category(category_slug, category_key, max_pages=3):
+def scrape_category(category_slug, category_key, max_pages=1000):
     all_documents = []
 
     for page in range(1, max_pages + 1):
@@ -89,7 +89,7 @@ def scrape_category(category_slug, category_key, max_pages=3):
             break
 
         all_documents.extend(documents)
-        time.sleep(1)
+        time.sleep(0.5)
 
     return all_documents
 
@@ -131,7 +131,7 @@ def parse_reshenia_jsonld(html, source_url):
 
     return documents
 
-def scrape_reshenia(max_pages=3):
+def scrape_reshenia(max_pages=1000):
     all_documents = []
     base = "https://obs.ruse-bg.eu/category/решения/"
 
@@ -151,7 +151,7 @@ def scrape_reshenia(max_pages=3):
             break
 
         all_documents.extend(documents)
-        time.sleep(1)
+        time.sleep(0.5)
 
     return all_documents
 
@@ -165,10 +165,10 @@ def main():
     }
 
     for key, slug in category_slugs.items():
-        results = scrape_category(slug, key, max_pages=3)
+        results = scrape_category(slug, key, max_pages=1000)
         all_results.extend(results)
 
-    reshenia_results = scrape_reshenia(max_pages=3)
+    reshenia_results = scrape_reshenia(max_pages=1000 )
     all_results.extend(reshenia_results)
 
     os.makedirs("data/raw", exist_ok=True)
