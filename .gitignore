@@ -3,6 +3,13 @@ __pycache__/
 *.pyc
 .env
 data/raw/*.json
+data/raw/*.html
 data/processed/*.json
 airflow_home/
+airflow.cfg
+airflow.db
+airflow-webserver.pid
+logs/
+standalone_admin_password.txt
+webserver_config.py
 .DS_Store
