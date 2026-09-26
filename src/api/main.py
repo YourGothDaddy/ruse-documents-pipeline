@@ -56,7 +56,52 @@ def get_stats():
 
 
 @app.get("/api/documents")
-def get_documents(category: str = None, status: str = None, search: str = None, limit: int = 50):
+def get_documents(category: str = None, status: str = None, search: str = None, limit: int = 50, offset: int = 0):
+    conn = get_connection()
+
+    base_query = """
+        FROM documents
+        JOIN categories ON documents.category_id = categories.id
+        JOIN statuses ON documents.status_id = statuses.id
+        WHERE 1=1
+    """
+    params = []
+
+    if category:
+        base_query += " AND categories.name = %s"
+        params.append(category)
+
+    if status:
+        base_query += " AND statuses.name = %s"
+        params.append(status)
+
+    if search:
+        base_query += " AND documents.title ILIKE %s"
+        params.append(f"%{search}%")
+
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT COUNT(*) AS total {base_query}", params)
+        total_count = cur.fetchone()["total"]
+
+        select_query = f"""
+            SELECT documents.id, documents.title, categories.name AS category,
+                   statuses.name AS status, documents.publish_date,
+                   documents.file_url, documents.file_type
+            {base_query}
+            ORDER BY documents.publish_date DESC
+            LIMIT %s OFFSET %s
+        """
+        cur.execute(select_query, params + [limit, offset])
+        results = cur.fetchall()
+
+    conn.close()
+
+    return {
+        "total": total_count,
+        "limit": limit,
+        "offset": offset,
+        "documents": results,
+    }
     conn = get_connection()
 
     query = """

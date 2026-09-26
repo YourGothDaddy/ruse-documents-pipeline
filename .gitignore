@@ -12,4 +12,4 @@ airflow-webserver.pid
 logs/
 standalone_admin_password.txt
 webserver_config.py
-.DS_Store
+.DS_Store.env.production
