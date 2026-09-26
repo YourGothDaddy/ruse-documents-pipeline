@@ -18,6 +18,7 @@ CREATE TABLE documents (
     file_type TEXT,
     file_size_kb INTEGER,
     source_url TEXT NOT NULL,
+    detail_url TEXT,
     scraped_at TIMESTAMP NOT NULL DEFAULT NOW(),
     CONSTRAINT unique_doc UNIQUE (source_url, title)
 );

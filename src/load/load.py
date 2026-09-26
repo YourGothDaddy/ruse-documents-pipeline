@@ -38,9 +38,9 @@ def upsert_document(conn, doc, category_map, status_map):
         cur.execute("""
             INSERT INTO documents (
                 title, category_id, status_id, publish_date,
-                file_url, file_type, file_size_kb, source_url
+                file_url, file_type, file_size_kb, source_url, detail_url
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (source_url, title) DO UPDATE SET
                 category_id = EXCLUDED.category_id,
                 status_id = EXCLUDED.status_id,
@@ -48,10 +48,12 @@ def upsert_document(conn, doc, category_map, status_map):
                 file_url = EXCLUDED.file_url,
                 file_type = EXCLUDED.file_type,
                 file_size_kb = EXCLUDED.file_size_kb,
+                detail_url = EXCLUDED.detail_url,
                 scraped_at = NOW()
         """, (
             doc["title"], category_id, status_id, doc["publish_date"],
-            doc["file_url"], doc["file_type"], doc["file_size_kb"], doc["source_url"]
+            doc["file_url"], doc["file_type"], doc["file_size_kb"], doc["source_url"],
+            doc["detail_url"]
         ))
 
 
