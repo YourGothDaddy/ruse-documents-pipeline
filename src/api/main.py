@@ -45,6 +45,23 @@ def get_stats():
         """)
         by_status = cur.fetchall()
 
+        cur.execute("""
+            SELECT EXTRACT(YEAR FROM publish_date) AS year, COUNT(*) AS count
+            FROM documents
+            WHERE publish_date IS NOT NULL
+            GROUP BY year
+            ORDER BY year DESC
+        """)
+        by_year = cur.fetchall()
+
+        cur.execute("""
+            SELECT COALESCE(file_type, 'none') AS file_type, COUNT(*) AS count
+            FROM documents
+            GROUP BY file_type
+            ORDER BY count DESC
+        """)
+        by_file_type = cur.fetchall()
+
     conn.close()
 
     return {
@@ -52,11 +69,24 @@ def get_stats():
         "documents_last_30_days": recent,
         "by_category": by_category,
         "by_status": by_status,
+        "by_year": by_year,
+        "by_file_type": by_file_type,
     }
-
-
+    
 @app.get("/api/documents")
-def get_documents(category: str = None, status: str = None, search: str = None, limit: int = 50, offset: int = 0):
+def get_documents(
+    category: str = None,
+    status: str = None,
+    search: str = None,
+    file_type: str = None,
+    has_file: bool = None,
+    date_from: str = None,
+    date_to: str = None,
+    sort_by: str = "publish_date",
+    sort_order: str = "desc",
+    limit: int = 50,
+    offset: int = 0
+):
     conn = get_connection()
 
     base_query = """
@@ -79,6 +109,32 @@ def get_documents(category: str = None, status: str = None, search: str = None, 
         base_query += " AND documents.title ILIKE %s"
         params.append(f"%{search}%")
 
+    if file_type:
+        base_query += " AND documents.file_type = %s"
+        params.append(file_type)
+
+    if has_file is not None:
+        if has_file:
+            base_query += " AND documents.file_url IS NOT NULL"
+        else:
+            base_query += " AND documents.file_url IS NULL"
+
+    if date_from:
+        base_query += " AND documents.publish_date >= %s"
+        params.append(date_from)
+
+    if date_to:
+        base_query += " AND documents.publish_date <= %s"
+        params.append(date_to)
+
+    allowed_sort_columns = {
+        "publish_date": "documents.publish_date",
+        "title": "documents.title",
+        "category": "categories.name",
+    }
+    sort_column = allowed_sort_columns.get(sort_by, "documents.publish_date")
+    sort_direction = "ASC" if sort_order == "asc" else "DESC"
+
     with conn.cursor() as cur:
         cur.execute(f"SELECT COUNT(*) AS total {base_query}", params)
         total_count = cur.fetchone()["total"]
@@ -88,7 +144,7 @@ def get_documents(category: str = None, status: str = None, search: str = None, 
                    statuses.name AS status, documents.publish_date,
                    documents.file_url, documents.file_type, documents.detail_url
             {base_query}
-            ORDER BY documents.publish_date DESC
+            ORDER BY {sort_column} {sort_direction}
             LIMIT %s OFFSET %s
         """
         cur.execute(select_query, params + [limit, offset])
@@ -102,41 +158,6 @@ def get_documents(category: str = None, status: str = None, search: str = None, 
         "offset": offset,
         "documents": results,
     }
-    conn = get_connection()
-
-    query = """
-        SELECT documents.id, documents.title, categories.name AS category,
-               statuses.name AS status, documents.publish_date,
-               documents.file_url, documents.file_type
-        FROM documents
-        JOIN categories ON documents.category_id = categories.id
-        JOIN statuses ON documents.status_id = statuses.id
-        WHERE 1=1
-    """
-    params = []
-
-    if category:
-        query += " AND categories.name = %s"
-        params.append(category)
-
-    if status:
-        query += " AND statuses.name = %s"
-        params.append(status)
-
-    if search:
-        query += " AND documents.title ILIKE %s"
-        params.append(f"%{search}%")
-
-    query += " ORDER BY documents.publish_date DESC LIMIT %s"
-    params.append(limit)
-
-    with conn.cursor() as cur:
-        cur.execute(query, params)
-        results = cur.fetchall()
-
-    conn.close()
-    return results
-
 
 @app.get("/api/documents/{document_id}")
 def get_document(document_id: int):
