@@ -1,30 +1,43 @@
-import requests
-from bs4 import BeautifulSoup
 import json
-import time
 import os
+import time
 from datetime import datetime
 
-BASE_URL = "https://obs.ruse-bg.eu/document-category/{category}/page/{page}/"
+import requests
+from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
-CATEGORIES = {
-    "naredbi": "наредби",
-    "reshenia": "решения",
-    "protokoli": "протоколи",
-    "predlojenia": "предложения",
-    "privatizacia": "приватизация",
-}
+CATEGORY_URL = "https://obs.ruse-bg.eu/document-category/{slug}/page/{page}/"
+RESHENIA_URL = "https://obs.ruse-bg.eu/category/решения/"
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-}
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+REQUEST_TIMEOUT = (10, 30)
+REQUEST_DELAY_SECONDS = 0.5
+MAX_PAGES = 1000
+KNOWN_PAGES_TO_STOP = 2
 
 
-def fetch_page(category_slug, page_number):
-    url = BASE_URL.format(category=category_slug, page=page_number)
-    response = requests.get(url, headers=HEADERS, timeout=10)
-    if response.status_code != 200:
+def build_session():
+    retry = Retry(
+        total=5,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+    )
+    session = requests.Session()
+    session.headers.update(HEADERS)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+def get_page(session, url):
+    response = session.get(url, timeout=REQUEST_TIMEOUT)
+    if response.status_code == 404:
         return None
+    response.raise_for_status()
     return response.text
 
 
@@ -32,74 +45,44 @@ def parse_documents(html, category_key, source_url):
     soup = BeautifulSoup(html, "html.parser")
     documents = []
 
-    articles = soup.find_all("article", class_="lsvr_document")
-
-    for article in articles:
+    for article in soup.find_all("article", class_="lsvr_document"):
         title_tag = article.select_one("h2.post__title a.post__title-link")
         if not title_tag:
             continue
 
-        title = title_tag.get_text(strip=True)
-        detail_url = title_tag.get("href")
-
         attachment_link = article.select_one("a.post__attachment-link")
-        file_url = attachment_link.get("href") if attachment_link else None
-
         extension_tag = article.select_one("span.post__attachment-extension")
+        filesize_tag = article.select_one("span.post__attachment-filesize")
+        date_tag = article.select_one("span.post__meta-date")
+
         file_type = None
         if extension_tag:
-            file_type = extension_tag.get_text(strip=True).replace("File extension:", "").strip().lower()
-
-        filesize_tag = article.select_one("span.post__attachment-filesize")
-        file_size_raw = filesize_tag.get_text(strip=True) if filesize_tag else None
-
-        date_tag = article.select_one("span.post__meta-date")
-        publish_date_raw = date_tag.get_text(strip=True) if date_tag else None
+            file_type = (
+                extension_tag.get_text(strip=True)
+                .replace("File extension:", "")
+                .strip()
+                .lower()
+            )
 
         documents.append({
-            "title": title,
-            "detail_url": detail_url,
-            "file_url": file_url,
+            "title": title_tag.get_text(strip=True),
+            "detail_url": title_tag.get("href"),
+            "file_url": attachment_link.get("href") if attachment_link else None,
             "file_type": file_type,
-            "file_size_raw": file_size_raw,
+            "file_size_raw": filesize_tag.get_text(strip=True) if filesize_tag else None,
             "category": category_key,
-            "publish_date_raw": publish_date_raw,
+            "publish_date_raw": date_tag.get_text(strip=True) if date_tag else None,
             "source_url": source_url,
         })
 
     return documents
 
 
-def scrape_category(category_slug, category_key, max_pages=1000):
-    all_documents = []
-
-    for page in range(1, max_pages + 1):
-        print(f"Scraping {category_key} page {page}...")
-        html = fetch_page(category_slug, page)
-
-        if html is None:
-            print(f"No more pages for {category_key} at page {page}")
-            break
-
-        source_url = BASE_URL.format(category=category_slug, page=page)
-        documents = parse_documents(html, category_key, source_url)
-
-        if not documents:
-            print(f"No documents found on page {page}, stopping.")
-            break
-
-        all_documents.extend(documents)
-        time.sleep(0.5)
-
-    return all_documents
-
 def parse_reshenia_jsonld(html, source_url):
     soup = BeautifulSoup(html, "html.parser")
     documents = []
 
-    script_tags = soup.find_all("script", type="application/ld+json")
-
-    for script in script_tags:
+    for script in soup.find_all("script", type="application/ld+json"):
         try:
             data = json.loads(script.string)
         except (json.JSONDecodeError, TypeError):
@@ -113,9 +96,6 @@ def parse_reshenia_jsonld(html, source_url):
                 continue
 
             date_published = item.get("datePublished")
-            publish_date_raw = None
-            if date_published:
-                publish_date_raw = date_published.split("T")[0]
 
             documents.append({
                 "title": item.get("headline"),
@@ -124,63 +104,103 @@ def parse_reshenia_jsonld(html, source_url):
                 "file_type": None,
                 "file_size_raw": None,
                 "category": "reshenia",
-                "publish_date_raw": publish_date_raw,
+                "publish_date_raw": date_published.split("T")[0] if date_published else None,
                 "source_url": source_url,
                 "description": item.get("description"),
             })
 
     return documents
 
-def scrape_reshenia(max_pages=1000):
-    all_documents = []
-    base = "https://obs.ruse-bg.eu/category/решения/"
 
-    for page in range(1, max_pages + 1):
-        url = base if page == 1 else f"{base}page/{page}/"
-        print(f"Scraping reshenia page {page}...")
+def scrape_pages(session, url_for_page, parse_page, label, known_urls=None):
+    documents = []
+    consecutive_known = 0
 
-        response = requests.get(url, headers=HEADERS, timeout=10)
-        if response.status_code != 200:
-            print(f"No more pages for reshenia at page {page}")
+    for page in range(1, MAX_PAGES + 1):
+        url = url_for_page(page)
+        print(f"Scraping {label} page {page}...")
+        html = get_page(session, url)
+
+        if html is None:
+            print(f"Reached the end of {label} at page {page}")
             break
 
-        documents = parse_reshenia_jsonld(response.text, url)
+        page_documents = parse_page(html, url)
 
-        if not documents:
-            print(f"No documents found on page {page}, stopping.")
+        if not page_documents:
+            if page == 1:
+                raise RuntimeError(f"No documents found on page 1 of {label}, site structure may have changed")
+            print(f"No documents on {label} page {page}, stopping")
             break
 
-        all_documents.extend(documents)
-        time.sleep(0.5)
+        documents.extend(page_documents)
 
-    return all_documents
+        if known_urls is not None:
+            if all(doc["detail_url"] in known_urls for doc in page_documents):
+                consecutive_known += 1
+                if consecutive_known >= KNOWN_PAGES_TO_STOP:
+                    print(f"{label}: {KNOWN_PAGES_TO_STOP} consecutive pages already known, stopping at page {page}")
+                    break
+            else:
+                consecutive_known = 0
+
+        time.sleep(REQUEST_DELAY_SECONDS)
+
+    return documents
 
 
-def main():
-    all_results = []
+def scrape_category(session, slug, key):
+    return scrape_pages(
+        session,
+        lambda page: CATEGORY_URL.format(slug=slug, page=page),
+        lambda html, url: parse_documents(html, key, url),
+        key,
+    )
 
-    category_slugs = {
-        "naredbi": "наредби",
-        "protokoli": "протоколи",
-    }
 
-    for key, slug in category_slugs.items():
-        results = scrape_category(slug, key, max_pages=1000)
-        all_results.extend(results)
+def scrape_reshenia(session, known_urls=None):
+    return scrape_pages(
+        session,
+        lambda page: RESHENIA_URL if page == 1 else f"{RESHENIA_URL}page/{page}/",
+        parse_reshenia_jsonld,
+        "reshenia",
+        known_urls,
+    )
 
-    reshenia_results = scrape_reshenia(max_pages=1000 )
-    all_results.extend(reshenia_results)
+
+def main(known_urls=None):
+    session = build_session()
+    results = []
+
+    results.extend(scrape_category(session, "наредби", "naredbi"))
+    results.extend(scrape_category(session, "протоколи", "protokoli"))
+    results.extend(scrape_reshenia(session, known_urls))
+
+    if not results:
+        raise RuntimeError("Scrape returned no documents")
+
+    if known_urls is not None:
+        new_count = sum(1 for doc in results if doc["detail_url"] not in known_urls)
+        print(f"{new_count} of {len(results)} scraped documents are new")
 
     os.makedirs("data/raw", exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_path = f"data/raw/scrape_{timestamp}.json"
 
     with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(all_results, f, ensure_ascii=False, indent=2)
+        json.dump(results, f, ensure_ascii=False, indent=2)
 
-    print(f"Saved {len(all_results)} documents to {output_path}")
+    print(f"Saved {len(results)} documents to {output_path}")
     return output_path
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+
+    if "incremental" in sys.argv[1:]:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+        from db.connection import get_known_detail_urls
+
+        main(known_urls=get_known_detail_urls())
+    else:
+        main()
