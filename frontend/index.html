@@ -101,6 +101,21 @@
   color: #999;
   font-style: italic;
 }
+
+.year-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.year-chip {
+  background: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #555;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
 </style>
 </head>
 <body>
@@ -108,6 +123,7 @@
 <h1>Документи на Община Русе</h1>
 
 <div class="stats" id="stats"></div>
+<div id="yearBreakdown" class="year-breakdown"></div>
 
 <div class="filters">
   <input type="text" id="search" placeholder="Търсене по заглавие...">
@@ -116,6 +132,23 @@
     <option value="">Всички статуси</option>
     <option value="active">Активни</option>
     <option value="repealed">Отменени</option>
+  </select>
+  <select id="fileType">
+    <option value="">Всички формати</option>
+    <option value="docx">DOCX</option>
+    <option value="doc">DOC</option>
+    <option value="pdf">PDF</option>
+  </select>
+  <select id="hasFile">
+    <option value="">Всички документи</option>
+    <option value="true">Само с прикачен файл</option>
+    <option value="false">Само без прикачен файл</option>
+  </select>
+  <select id="sortBy">
+    <option value="publish_date_desc">Дата, най-нови първо</option>
+    <option value="publish_date_asc">Дата, най-стари първо</option>
+    <option value="title_asc">Заглавие, А-Я</option>
+    <option value="title_desc">Заглавие, Я-А</option>
   </select>
 </div>
 
@@ -133,6 +166,9 @@ async function loadStats() {
   const data = await res.json();
 
   const statsDiv = document.getElementById("stats");
+  const noFileCount = data.by_file_type.find(f => f.file_type === "none")?.count || 0;
+  const noFilePercent = ((noFileCount / data.total_documents) * 100).toFixed(1);
+
   statsDiv.innerHTML = `
     <div class="stat-card">
       <div class="stat-number">${data.total_documents}</div>
@@ -146,7 +182,16 @@ async function loadStats() {
       <div class="stat-number">${data.by_status.find(s => s.name === "repealed")?.count || 0}</div>
       <div class="stat-label">Отменени</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-number">${noFilePercent}%</div>
+      <div class="stat-label">Без прикачен файл</div>
+    </div>
   `;
+
+  const yearBreakdown = document.getElementById("yearBreakdown");
+  yearBreakdown.innerHTML = data.by_year
+    .map(y => `<span class="year-chip">${y.year}: ${y.count}</span>`)
+    .join("");
 
   const categorySelect = document.getElementById("category");
   data.by_category.forEach(cat => {
@@ -162,10 +207,19 @@ async function loadDocuments() {
   const category = document.getElementById("category").value;
   const status = document.getElementById("status").value;
 
+  const fileType = document.getElementById("fileType").value;
+  const hasFile = document.getElementById("hasFile").value;
+  const sortValue = document.getElementById("sortBy").value;
+  const [sortBy, sortOrder] = sortValue.split(/_(?=asc|desc)/);
+
   const params = new URLSearchParams();
   if (search) params.append("search", search);
   if (category) params.append("category", category);
   if (status) params.append("status", status);
+  if (fileType) params.append("file_type", fileType);
+  if (hasFile) params.append("has_file", hasFile);
+  params.append("sort_by", sortBy);
+  params.append("sort_order", sortOrder);
   params.append("limit", PAGE_SIZE);
   params.append("offset", currentOffset);
 
@@ -235,6 +289,9 @@ function renderPagination(total) {
 document.getElementById("search").addEventListener("input", debounce(() => { currentOffset = 0; loadDocuments(); }, 300));
 document.getElementById("category").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
 document.getElementById("status").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
+document.getElementById("fileType").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
+document.getElementById("hasFile").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
+document.getElementById("sortBy").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
 
 function debounce(fn, delay) {
   let timeoutId;
