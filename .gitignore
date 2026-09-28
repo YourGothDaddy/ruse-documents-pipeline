@@ -2,6 +2,7 @@ venv/
 __pycache__/
 *.pyc
 .env
+.env.production
 data/raw/*.json
 data/raw/*.html
 data/processed/*.json
