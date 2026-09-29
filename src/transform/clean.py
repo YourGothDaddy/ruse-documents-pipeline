@@ -76,6 +76,7 @@ def transform_document(raw_doc):
         "file_size_kb": parse_file_size(raw_doc.get("file_size_raw")),
         "source_url": raw_doc.get("source_url"),
         "detail_url": raw_doc.get("detail_url"),
+        "description": html.unescape(raw_doc.get("description")) if raw_doc.get("description") else None,
     }
 
 

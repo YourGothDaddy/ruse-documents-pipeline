@@ -1,22 +1,11 @@
-import json
 import glob
+import json
 import os
-import psycopg2
-from dotenv import load_dotenv
+import sys
 
-load_dotenv()
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
-DB_CONFIG = {
-    "host": os.getenv("DB_HOST"),
-    "dbname": os.getenv("DB_NAME"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "sslmode": "require",
-}
-
-
-def get_connection():
-    return psycopg2.connect(**DB_CONFIG)
+from src.db.connection import get_connection
 
 
 def get_lookup_maps(conn):
@@ -38,22 +27,25 @@ def upsert_document(conn, doc, category_map, status_map):
         cur.execute("""
             INSERT INTO documents (
                 title, category_id, status_id, publish_date,
-                file_url, file_type, file_size_kb, source_url, detail_url
+                file_url, file_type, file_size_kb, source_url,
+                detail_url, description
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (source_url, title) DO UPDATE SET
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (detail_url) DO UPDATE SET
+                title = EXCLUDED.title,
                 category_id = EXCLUDED.category_id,
                 status_id = EXCLUDED.status_id,
                 publish_date = EXCLUDED.publish_date,
                 file_url = EXCLUDED.file_url,
                 file_type = EXCLUDED.file_type,
                 file_size_kb = EXCLUDED.file_size_kb,
-                detail_url = EXCLUDED.detail_url,
+                source_url = EXCLUDED.source_url,
+                description = EXCLUDED.description,
                 scraped_at = NOW()
         """, (
             doc["title"], category_id, status_id, doc["publish_date"],
             doc["file_url"], doc["file_type"], doc["file_size_kb"], doc["source_url"],
-            doc["detail_url"]
+            doc["detail_url"], doc.get("description")
         ))
 
 
@@ -85,6 +77,7 @@ def main(input_path=None):
 
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     main()
