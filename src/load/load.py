@@ -18,7 +18,6 @@ def get_lookup_maps(conn):
 
     return category_map, status_map
 
-
 def upsert_document(conn, doc, category_map, status_map):
     category_id = category_map.get(doc["category_name"])
     status_id = status_map.get(doc["status_name"])
@@ -28,9 +27,10 @@ def upsert_document(conn, doc, category_map, status_map):
             INSERT INTO documents (
                 title, category_id, status_id, publish_date,
                 file_url, file_type, file_size_kb, source_url,
-                detail_url, description
+                detail_url, description,
+                decision_number, protocol_number, regulation_number, session_date
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (detail_url) DO UPDATE SET
                 title = EXCLUDED.title,
                 category_id = EXCLUDED.category_id,
@@ -41,13 +41,18 @@ def upsert_document(conn, doc, category_map, status_map):
                 file_size_kb = EXCLUDED.file_size_kb,
                 source_url = EXCLUDED.source_url,
                 description = EXCLUDED.description,
+                decision_number = EXCLUDED.decision_number,
+                protocol_number = EXCLUDED.protocol_number,
+                regulation_number = EXCLUDED.regulation_number,
+                session_date = EXCLUDED.session_date,
                 scraped_at = NOW()
         """, (
             doc["title"], category_id, status_id, doc["publish_date"],
             doc["file_url"], doc["file_type"], doc["file_size_kb"], doc["source_url"],
-            doc["detail_url"], doc.get("description")
+            doc["detail_url"], doc.get("description"),
+            doc.get("decision_number"), doc.get("protocol_number"),
+            doc.get("regulation_number"), doc.get("session_date")
         ))
-
 
 def main(input_path=None):
     if input_path is None:
