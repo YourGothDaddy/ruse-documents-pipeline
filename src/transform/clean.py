@@ -55,6 +55,22 @@ BULGARIAN_ORDINAL_WORDS = {
     "тридесет и осмото": 38, "тридесет и деветото": 39, "четиридесетото": 40,
 }
 
+TOPIC_KEYWORDS = {
+    "Устройство на територията": ["зут", "устройство на територията", "застрояване", "кадастър", "строеж"],
+    "Общинска собственост": ["общинска собственост", "концесия", "наем", "продажба на имот", "разпореждане с имот"],
+    "Бюджет и финанси": ["бюджет", "разходи", "приходи", "субсидия", "капиталови разходи"],
+    "Образование": ["училище", "детска градина", "образование", "учебна"],
+    "Социални дейности": ["социални услуги", "социално подпомагане", "домашен помощник", "възрастни хора"],
+    "Транспорт": ["транспортна схема", "автобусни линии", "пътна", "паркинг"],
+    "Околна среда": ["околна среда", "отпадъци", "замърсяване", "зелена система"],
+    "Култура": ["културна", "читалище", "музей", "театър"],
+}
+
+LAW_CODE_PATTERN = re.compile(
+    r"\b(ЗМСМА|ЗУТ|ЗОС|ЗМДТ|ЗОП|АПК|ТЗ|ЗДДС)\b",
+    re.IGNORECASE
+)
+
 PROTOKOL_DATE_PATTERN = re.compile(
     r"проведено\s+на\s+(\d{1,2})\s+([а-я]+)\s+(\d{4})",
     re.IGNORECASE
@@ -101,6 +117,23 @@ def parse_file_size(raw_size):
         return int(value * 1024)
     return int(value)
 
+def assign_topics(title, description):
+    text = (title or "") + " " + (description or "")
+    text_lower = text.lower()
+
+    matched_topics = []
+    for topic, keywords in TOPIC_KEYWORDS.items():
+        if any(keyword in text_lower for keyword in keywords):
+            matched_topics.append(topic)
+
+    return matched_topics
+
+
+def extract_law_references(description):
+    if not description:
+        return []
+    matches = LAW_CODE_PATTERN.findall(description)
+    return sorted(set(match.upper() for match in matches))
 
 def detect_status(title):
     title_lower = title.lower()
@@ -205,6 +238,8 @@ def transform_document(raw_doc):
         "protocol_number": protocol_number,
         "regulation_number": regulation_number,
         "session_date": session_date,
+        "topics": assign_topics(title, raw_doc.get("description")),
+        "law_references": extract_law_references(raw_doc.get("description")),
     }
 
 
@@ -255,6 +290,12 @@ def main(input_path=None):
         print(f"Наредби regulation numbers parsed: {naredbi_parsed}/{len(naredbi_docs)}")
     if protokoli_docs:
         print(f"Протоколи protocol numbers parsed: {protokoli_parsed}/{len(protokoli_docs)}")
+
+    tagged_count = sum(1 for d in transformed if d["topics"])
+    with_law_refs = sum(1 for d in transformed if d["law_references"])
+
+    print(f"Documents with at least one topic: {tagged_count}/{len(transformed)}")
+    print(f"Documents with at least one law reference: {with_law_refs}/{len(transformed)}")
 
     output_path = input_path.replace("data/raw/scrape_", "data/processed/clean_")
 

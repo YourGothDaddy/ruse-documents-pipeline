@@ -7,18 +7,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 from src.db.connection import get_connection
 
-
 def get_lookup_maps(conn):
     with conn.cursor() as cur:
         cur.execute("SELECT id, name FROM categories")
-        category_map = {name: id for id, name in cur.fetchall()}
+        category_map = {row["name"]: row["id"] for row in cur.fetchall()}
 
         cur.execute("SELECT id, name FROM statuses")
-        status_map = {name: id for id, name in cur.fetchall()}
+        status_map = {row["name"]: row["id"] for row in cur.fetchall()}
 
-    return category_map, status_map
+        cur.execute("SELECT id, name FROM topics")
+        topic_map = {row["name"]: row["id"] for row in cur.fetchall()}
 
-def upsert_document(conn, doc, category_map, status_map):
+    return category_map, status_map, topic_map
+
+def upsert_document(conn, doc, category_map, status_map, topic_map):
     category_id = category_map.get(doc["category_name"])
     status_id = status_map.get(doc["status_name"])
 
@@ -46,6 +48,7 @@ def upsert_document(conn, doc, category_map, status_map):
                 regulation_number = EXCLUDED.regulation_number,
                 session_date = EXCLUDED.session_date,
                 scraped_at = NOW()
+            RETURNING id
         """, (
             doc["title"], category_id, status_id, doc["publish_date"],
             doc["file_url"], doc["file_type"], doc["file_size_kb"], doc["source_url"],
@@ -53,7 +56,24 @@ def upsert_document(conn, doc, category_map, status_map):
             doc.get("decision_number"), doc.get("protocol_number"),
             doc.get("regulation_number"), doc.get("session_date")
         ))
+        document_id = cur.fetchone()["id"]
 
+        cur.execute("DELETE FROM document_topics WHERE document_id = %s", (document_id,))
+        for topic_name in doc.get("topics", []):
+            topic_id = topic_map.get(topic_name)
+            if topic_id:
+                cur.execute(
+                    "INSERT INTO document_topics (document_id, topic_id) VALUES (%s, %s)",
+                    (document_id, topic_id)
+                )
+
+        cur.execute("DELETE FROM document_law_references WHERE document_id = %s", (document_id,))
+        for law_code in doc.get("law_references", []):
+            cur.execute(
+                "INSERT INTO document_law_references (document_id, law_code) VALUES (%s, %s)",
+                (document_id, law_code)
+            )
+            
 def main(input_path=None):
     if input_path is None:
         processed_files = sorted(glob.glob("data/processed/clean_*.json"))
@@ -64,13 +84,13 @@ def main(input_path=None):
     with open(input_path, encoding="utf-8") as f:
         documents = json.load(f)
 
-    conn = get_connection()
+    conn = get_connection(as_dict=True)
 
     try:
-        category_map, status_map = get_lookup_maps(conn)
+        category_map, status_map, topic_map = get_lookup_maps(conn)
 
         for doc in documents:
-            upsert_document(conn, doc, category_map, status_map)
+            upsert_document(conn, doc, category_map, status_map, topic_map)
 
         conn.commit()
         print(f"Loaded {len(documents)} documents successfully")
