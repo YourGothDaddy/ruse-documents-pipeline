@@ -81,41 +81,39 @@
     color: #1a56db;
     text-decoration: none;
   }
-
   .document-title-link {
-  color: #222;
-  text-decoration: none;
-}
-.document-title-link:hover {
-  text-decoration: underline;
-}
-.download-link {
-  background: #eef2ff;
-  color: #1a56db;
-  padding: 3px 10px;
-  border-radius: 5px;
-  font-weight: 600;
-  font-size: 12px;
-}
-.no-file {
-  color: #999;
-  font-style: italic;
-}
-
-.year-breakdown {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-.year-chip {
-  background: white;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  color: #555;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
-}
+    color: #222;
+    text-decoration: none;
+  }
+  .document-title-link:hover {
+    text-decoration: underline;
+  }
+  .download-link {
+    background: #eef2ff;
+    color: #1a56db;
+    padding: 3px 10px;
+    border-radius: 5px;
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .no-file {
+    color: #999;
+    font-style: italic;
+  }
+  .year-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .year-chip {
+    background: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    color: #555;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
 </style>
 </head>
 <body>
@@ -126,7 +124,7 @@
 <div id="yearBreakdown" class="year-breakdown"></div>
 
 <div class="filters">
-  <input type="text" id="search" placeholder="Търсене по заглавие...">
+  <input type="text" id="search" placeholder="Търсене по заглавие или съдържание...">
   <select id="category"><option value="">Всички категории</option></select>
   <select id="status">
     <option value="">Всички статуси</option>
@@ -144,11 +142,16 @@
     <option value="true">Само с прикачен файл</option>
     <option value="false">Само без прикачен файл</option>
   </select>
+  <select id="topic"><option value="">Всички теми</option></select>
+  <input type="date" id="dateFrom" title="От дата">
+  <input type="date" id="dateTo" title="До дата">
   <select id="sortBy">
     <option value="publish_date_desc">Дата, най-нови първо</option>
     <option value="publish_date_asc">Дата, най-стари първо</option>
     <option value="title_asc">Заглавие, А-Я</option>
     <option value="title_desc">Заглавие, Я-А</option>
+    <option value="number_desc">Номер, низходящо</option>
+    <option value="number_asc">Номер, възходящо</option>
   </select>
 </div>
 
@@ -202,13 +205,27 @@ async function loadStats() {
   });
 }
 
+async function loadTopics() {
+  const res = await fetch(`${API_BASE}/api/topics`);
+  const topics = await res.json();
+  const topicSelect = document.getElementById("topic");
+  topics.forEach(t => {
+    const option = document.createElement("option");
+    option.value = t.name;
+    option.textContent = t.name;
+    topicSelect.appendChild(option);
+  });
+}
+
 async function loadDocuments() {
   const search = document.getElementById("search").value;
   const category = document.getElementById("category").value;
   const status = document.getElementById("status").value;
-
   const fileType = document.getElementById("fileType").value;
   const hasFile = document.getElementById("hasFile").value;
+  const topic = document.getElementById("topic").value;
+  const dateFrom = document.getElementById("dateFrom").value;
+  const dateTo = document.getElementById("dateTo").value;
   const sortValue = document.getElementById("sortBy").value;
   const [sortBy, sortOrder] = sortValue.split(/_(?=asc|desc)/);
 
@@ -218,6 +235,9 @@ async function loadDocuments() {
   if (status) params.append("status", status);
   if (fileType) params.append("file_type", fileType);
   if (hasFile) params.append("has_file", hasFile);
+  if (topic) params.append("topic", topic);
+  if (dateFrom) params.append("date_from", dateFrom);
+  if (dateTo) params.append("date_to", dateTo);
   params.append("sort_by", sortBy);
   params.append("sort_order", sortOrder);
   params.append("limit", PAGE_SIZE);
@@ -286,13 +306,6 @@ function renderPagination(total) {
   });
 }
 
-document.getElementById("search").addEventListener("input", debounce(() => { currentOffset = 0; loadDocuments(); }, 300));
-document.getElementById("category").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
-document.getElementById("status").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
-document.getElementById("fileType").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
-document.getElementById("hasFile").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
-document.getElementById("sortBy").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
-
 function debounce(fn, delay) {
   let timeoutId;
   return (...args) => {
@@ -301,7 +314,18 @@ function debounce(fn, delay) {
   };
 }
 
+document.getElementById("search").addEventListener("input", debounce(() => { currentOffset = 0; loadDocuments(); }, 300));
+document.getElementById("category").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
+document.getElementById("status").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
+document.getElementById("fileType").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
+document.getElementById("hasFile").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
+document.getElementById("topic").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
+document.getElementById("dateFrom").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
+document.getElementById("dateTo").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
+document.getElementById("sortBy").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
+
 loadStats();
+loadTopics();
 loadDocuments();
 </script>
 
