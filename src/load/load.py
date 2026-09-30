@@ -5,6 +5,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
+from src.db.run_log import start_run, finish_run, fail_run
 from src.db.connection import get_connection
 
 def get_lookup_maps(conn):
@@ -85,24 +86,34 @@ def main(input_path=None):
         documents = json.load(f)
 
     conn = get_connection(as_dict=True)
+    run_id = start_run(conn)
 
     try:
         category_map, status_map, topic_map = get_lookup_maps(conn)
 
+        new_count = 0
         for doc in documents:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id FROM documents WHERE detail_url = %s", (doc["detail_url"],)
+                )
+                is_new = cur.fetchone() is None
+            if is_new:
+                new_count += 1
             upsert_document(conn, doc, category_map, status_map, topic_map)
 
         conn.commit()
-        print(f"Loaded {len(documents)} documents successfully")
+        finish_run(conn, run_id, len(documents), new_count)
+        print(f"Loaded {len(documents)} documents successfully, {new_count} new")
 
     except Exception as e:
         conn.rollback()
+        fail_run(conn, run_id, e)
         print(f"Error during load, rolled back: {e}")
         raise
 
     finally:
         conn.close()
-
 
 if __name__ == "__main__":
     main()

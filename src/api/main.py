@@ -179,3 +179,60 @@ def get_document(document_id: int):
         raise HTTPException(status_code=404, detail="Document not found")
 
     return result
+
+@app.get("/api/quality")
+def get_quality():
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT id, started_at, finished_at, status, documents_processed, documents_new, error_message
+            FROM pipeline_runs
+            ORDER BY started_at DESC
+            LIMIT 1
+        """)
+        last_run = cur.fetchone()
+
+        cur.execute("SELECT COUNT(*) AS total FROM documents")
+        total = cur.fetchone()["total"]
+
+        cur.execute("""
+            SELECT COUNT(*) FILTER (WHERE decision_number IS NOT NULL) AS parsed, COUNT(*) AS total
+            FROM documents WHERE category_id = (SELECT id FROM categories WHERE name = 'Решения')
+        """)
+        reshenia_parse = cur.fetchone()
+
+        cur.execute("""
+            SELECT COUNT(*) FILTER (WHERE regulation_number IS NOT NULL) AS parsed, COUNT(*) AS total
+            FROM documents WHERE category_id = (SELECT id FROM categories WHERE name = 'Наредби')
+        """)
+        naredbi_parse = cur.fetchone()
+
+        cur.execute("""
+            SELECT COUNT(*) FILTER (WHERE protocol_number IS NOT NULL) AS parsed, COUNT(*) AS total
+            FROM documents WHERE category_id = (SELECT id FROM categories WHERE name = 'Протоколи')
+        """)
+        protokoli_parse = cur.fetchone()
+
+        cur.execute("SELECT COUNT(*) AS missing FROM documents WHERE publish_date IS NULL")
+        missing_dates = cur.fetchone()["missing"]
+
+        cur.execute("SELECT COUNT(*) AS missing FROM documents WHERE file_url IS NULL")
+        no_file = cur.fetchone()["missing"]
+
+        cur.execute("SELECT COUNT(DISTINCT document_id) AS tagged FROM document_topics")
+        topics_tagged = cur.fetchone()["tagged"]
+
+    conn.close()
+
+    return {
+        "last_run": last_run,
+        "total_documents": total,
+        "field_parse_rates": {
+            "reshenia_decision_number": reshenia_parse,
+            "naredbi_regulation_number": naredbi_parse,
+            "protokoli_protocol_number": protokoli_parse,
+        },
+        "missing_publish_date": missing_dates,
+        "documents_without_file": no_file,
+        "documents_with_topics": topics_tagged,
+    }
