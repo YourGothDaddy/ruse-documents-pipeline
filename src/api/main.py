@@ -82,6 +82,7 @@ def get_documents(
     has_file: bool = None,
     date_from: str = None,
     date_to: str = None,
+    topic: str = None,
     sort_by: str = "publish_date",
     sort_order: str = "desc",
     limit: int = 50,
@@ -106,18 +107,16 @@ def get_documents(
         params.append(status)
 
     if search:
-        base_query += " AND documents.title ILIKE %s"
+        base_query += " AND (documents.title ILIKE %s OR documents.search_vector @@ plainto_tsquery('simple', %s))"
         params.append(f"%{search}%")
+        params.append(search)
 
     if file_type:
         base_query += " AND documents.file_type = %s"
         params.append(file_type)
 
     if has_file is not None:
-        if has_file:
-            base_query += " AND documents.file_url IS NOT NULL"
-        else:
-            base_query += " AND documents.file_url IS NULL"
+        base_query += " AND documents.file_url IS NOT NULL" if has_file else " AND documents.file_url IS NULL"
 
     if date_from:
         base_query += " AND documents.publish_date >= %s"
@@ -127,10 +126,21 @@ def get_documents(
         base_query += " AND documents.publish_date <= %s"
         params.append(date_to)
 
+    if topic:
+        base_query += """
+            AND documents.id IN (
+                SELECT document_id FROM document_topics
+                JOIN topics ON document_topics.topic_id = topics.id
+                WHERE topics.name = %s
+            )
+        """
+        params.append(topic)
+
     allowed_sort_columns = {
         "publish_date": "documents.publish_date",
         "title": "documents.title",
         "category": "categories.name",
+        "number": "COALESCE(documents.decision_number, documents.regulation_number, documents.protocol_number)",
     }
     sort_column = allowed_sort_columns.get(sort_by, "documents.publish_date")
     sort_direction = "ASC" if sort_order == "asc" else "DESC"
@@ -142,22 +152,17 @@ def get_documents(
         select_query = f"""
             SELECT documents.id, documents.title, categories.name AS category,
                    statuses.name AS status, documents.publish_date,
-                   documents.file_url, documents.file_type, documents.detail_url
+                   documents.file_url, documents.file_type, documents.detail_url,
+                   documents.decision_number, documents.regulation_number, documents.protocol_number
             {base_query}
-            ORDER BY {sort_column} {sort_direction}
+            ORDER BY {sort_column} {sort_direction} NULLS LAST
             LIMIT %s OFFSET %s
         """
         cur.execute(select_query, params + [limit, offset])
         results = cur.fetchall()
 
     conn.close()
-
-    return {
-        "total": total_count,
-        "limit": limit,
-        "offset": offset,
-        "documents": results,
-    }
+    return {"total": total_count, "limit": limit, "offset": offset, "documents": results}
 
 @app.get("/api/documents/{document_id}")
 def get_document(document_id: int):
@@ -236,3 +241,12 @@ def get_quality():
         "documents_without_file": no_file,
         "documents_with_topics": topics_tagged,
     }
+
+@app.get("/api/topics")
+def get_topics():
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute("SELECT name FROM topics ORDER BY name")
+        topics = cur.fetchall()
+    conn.close()
+    return topics
