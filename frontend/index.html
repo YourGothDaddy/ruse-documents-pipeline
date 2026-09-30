@@ -167,6 +167,11 @@
 <div class="stats" id="stats"></div>
 <div id="yearBreakdown" class="year-breakdown"></div>
 <div id="qualityPanel" class="quality-panel"></div>
+<div class="trends-panel" id="trendsPanel" style="background: white; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
+  <h3 style="margin: 0 0 10px 0; font-size: 14px;">Документи по категория през годините</h3>
+  <p id="trendsNote" style="font-size: 12px; color: #999; margin: 0 0 10px 0;"></p>
+  <canvas id="trendsChart" height="100"></canvas>
+</div>
 
 <div class="filters">
   <input type="text" id="search" placeholder="Търсене по заглавие или съдържание...">
@@ -203,7 +208,9 @@
 <div id="documents"></div>
 <div id="pagination" style="display: flex; gap: 12px; align-items: center; justify-content: center; margin: 20px 0;"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
+
 const API_BASE = "https://ruse-documents-pipeline.onrender.com";
 
 let currentOffset = 0;
@@ -363,6 +370,39 @@ async function loadQuality() {
     ${rateRow("Протоколи, номер на протокол", rates.protokoli_protocol_number, "Дял от документите в категория Протоколи, при които номерът е успешно извлечен, независимо дали е записан с цифра или изписан с дума.")}
   `;
 }
+async function loadTrends() {
+  const res = await fetch(`${API_BASE}/api/trends/category-volume`);
+  const data = await res.json();
+
+  if (data.excluded_missing_date > 0) {
+    document.getElementById("trendsNote").textContent =
+      `${data.excluded_missing_date} документа без дата не са включени в графиката.`;
+  }
+
+  const currentYear = new Date().getFullYear();
+  const palette = ["#1a56db", "#1a7a1a", "#b00020", "#e6a700", "#6b46c1"];
+
+  const datasets = Object.entries(data.categories).map(([name, counts], i) => ({
+    label: name,
+    data: counts,
+    backgroundColor: palette[i % palette.length],
+  }));
+
+  new Chart(document.getElementById("trendsChart"), {
+    type: "bar",
+    data: {
+      labels: data.years.map(y => y === currentYear ? `${y} (незавършена)` : String(y)),
+      datasets,
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, beginAtZero: true },
+      },
+    },
+  });
+}
 
 function renderPagination(total) {
   const container = document.getElementById("pagination");
@@ -408,6 +448,7 @@ loadStats();
 loadTopics();
 loadQuality();
 loadDocuments();
+loadTrends();
 </script>
 
 </body>

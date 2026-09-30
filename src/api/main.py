@@ -72,6 +72,38 @@ def get_stats():
         "by_year": by_year,
         "by_file_type": by_file_type,
     }
+
+@app.get("/api/trends/category-volume")
+def get_category_volume():
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT EXTRACT(YEAR FROM documents.publish_date)::int AS year,
+                   categories.name AS category,
+                   COUNT(*) AS count
+            FROM documents
+            JOIN categories ON documents.category_id = categories.id
+            WHERE documents.publish_date IS NOT NULL
+            GROUP BY year, categories.name
+            ORDER BY year
+        """)
+        rows = cur.fetchall()
+
+        cur.execute("SELECT COUNT(*) AS missing FROM documents WHERE publish_date IS NULL")
+        missing_date_count = cur.fetchone()["missing"]
+    conn.close()
+
+    years = sorted({row["year"] for row in rows})
+    by_category = {}
+    for row in rows:
+        by_category.setdefault(row["category"], {y: 0 for y in years})
+        by_category[row["category"]][row["year"]] = row["count"]
+
+    return {
+        "years": years,
+        "categories": {cat: [counts[y] for y in years] for cat, counts in by_category.items()},
+        "excluded_missing_date": missing_date_count,
+    }
     
 @app.get("/api/documents")
 def get_documents(
