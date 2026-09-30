@@ -114,6 +114,50 @@
     color: #555;
     box-shadow: 0 1px 2px rgba(0,0,0,0.08);
   }
+
+  .quality-panel {
+  background: white;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: #444;
+}
+.quality-panel h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+}
+.quality-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.quality-bar-track {
+  background: #eee;
+  border-radius: 4px;
+  height: 8px;
+  margin-top: 3px;
+  overflow: hidden;
+}
+.quality-bar-fill {
+  background: #1a56db;
+  height: 100%;
+}
+
+.info-icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ccc;
+  color: white;
+  font-size: 10px;
+  text-align: center;
+  line-height: 14px;
+  cursor: help;
+  margin-left: 4px;
+}
 </style>
 </head>
 <body>
@@ -122,6 +166,7 @@
 
 <div class="stats" id="stats"></div>
 <div id="yearBreakdown" class="year-breakdown"></div>
+<div id="qualityPanel" class="quality-panel"></div>
 
 <div class="filters">
   <input type="text" id="search" placeholder="Търсене по заглавие или съдържание...">
@@ -284,6 +329,41 @@ async function loadDocuments() {
   renderPagination(data.total);
 }
 
+async function loadQuality() {
+  const res = await fetch(`${API_BASE}/api/quality`);
+  const data = await res.json();
+  const panel = document.getElementById("qualityPanel");
+
+  const info = (text) => `<span class="info-icon" title="${text}">?</span>`;
+
+  const rates = data.field_parse_rates;
+  const rateRow = (label, r, tooltip) => {
+    const pct = r.total ? ((r.parsed / r.total) * 100).toFixed(0) : 0;
+    return `
+      <div class="quality-row">
+        <span>${label}${info(tooltip)}</span>
+        <span>${r.parsed}/${r.total} (${pct}%)</span>
+      </div>
+      <div class="quality-bar-track"><div class="quality-bar-fill" style="width:${pct}%"></div></div>
+    `;
+  };
+
+  const lastRun = data.last_run
+    ? `${data.last_run.status === "success" ? "Успешно" : "Неуспешно"} на ${new Date(data.last_run.started_at).toLocaleString("bg-BG")}`
+    : "Няма данни";
+
+  panel.innerHTML = `
+    <h3>Качество на данните</h3>
+    <div class="quality-row"><span>Последно обновяване</span><span>${lastRun}</span></div>
+    <div class="quality-row"><span>Без дата на публикуване</span><span>${data.missing_publish_date}</span></div>
+    <div class="quality-row"><span>Без прикачен файл</span><span>${data.documents_without_file}</span></div>
+    <div class="quality-row"><span>С присвоена тема${info("Броят документи, на които автоматично е разпозната поне една тема (напр. бюджет, образование) въз основа на ключови думи в заглавието и съдържанието.")}</span><span>${data.documents_with_topics}</span></div>
+    ${rateRow("Решения, номер на решение", rates.reshenia_decision_number, "Дял от документите в категория Решения, при които номерът на решението е успешно извлечен от заглавието.")}
+    ${rateRow("Наредби, номер на наредба", rates.naredbi_regulation_number, "Дял от документите в категория Наредби, при които номерът на наредбата е успешно извлечен от заглавието. Някои по-стари наредби нямат номер в заглавието.")}
+    ${rateRow("Протоколи, номер на протокол", rates.protokoli_protocol_number, "Дял от документите в категория Протоколи, при които номерът е успешно извлечен, независимо дали е записан с цифра или изписан с дума.")}
+  `;
+}
+
 function renderPagination(total) {
   const container = document.getElementById("pagination");
   const currentPage = Math.floor(currentOffset / PAGE_SIZE) + 1;
@@ -326,6 +406,7 @@ document.getElementById("sortBy").addEventListener("change", () => { currentOffs
 
 loadStats();
 loadTopics();
+loadQuality();
 loadDocuments();
 </script>
 
