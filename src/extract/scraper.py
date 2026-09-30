@@ -174,6 +174,8 @@ def main(known_urls=None):
 
     results.extend(scrape_category(session, "наредби", "naredbi"))
     results.extend(scrape_category(session, "протоколи", "protokoli"))
+    results.extend(scrape_category(session, "предложения", "predlojenia"))
+    results.extend(scrape_category(session, "приватизация", "privatizacia"))
     results.extend(scrape_reshenia(session, known_urls))
 
     if not results:
