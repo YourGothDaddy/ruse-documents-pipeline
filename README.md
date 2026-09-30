@@ -53,9 +53,11 @@ Real inconsistencies handled by the pipeline:
 
 ## Known Limitations
 
-- Status detection, active versus repealed, currently only works reliably for Наредби, since that category's titles follow a consistent phrasing pattern the detector recognizes. Решения and Протоколи default to active, since nothing in the current logic classifies them.
-- A full historical scrape of Решения runs several hundred sequential requests to the source site and can occasionally hit a connection timeout partway through. Retry logic handles transient failures, but a full run is not perfectly reliable end to end every time.
-- The API allows requests from any origin. Acceptable for a small public read only dataset like this, but worth noting as a deliberate simplification rather than an oversight.
+- Ordinance regulation numbers parse from titles for about two thirds of documents, since some older regulations have no number in the title at all.
+- Protocol numbers parse for about two thirds of documents, covering both digit and Bulgarian ordinal word formats.
+- Topic tagging uses keyword matching, not machine learning, and only covers documents whose title or description contains one of a fixed set of Bulgarian phrases.
+- Full text search uses Postgres's generic text configuration rather than a Bulgarian-specific one, so it matches exact word forms without stemming.
+- The API allows requests from any origin, a deliberate simplification for a small public read only dataset.
 
 ## Database Schema
 
@@ -70,6 +72,16 @@ id, title, category_id, status_id, publish_date, file_url, file_type, file_size_
 **statuses** (dimension table)
 active, repealed, unknown
 
+## Database Setup
+
+The schema is managed through numbered migrations in `sql/migrations/`, applied with:
+
+```bash
+python3 src/db/migrate.py
+```
+
+Each migration runs once and is tracked in a `schema_migrations` table. New databases start from `001_baseline.sql` and apply every migration in order.
+
 ## Tech Stack
 
 - Python, requests and BeautifulSoup for extraction
@@ -77,6 +89,7 @@ active, repealed, unknown
 - Apache Airflow for scheduling and orchestration
 - FastAPI for the backend API, deployed on Render
 - Plain HTML, CSS, and JavaScript for the dashboard, no framework, deployed on Vercel
+- SQL migrations for schema versioning, tracked in `schema_migrations`
 
 ## Running This Locally
 
@@ -135,10 +148,7 @@ Open `http://localhost:5500`. By default the frontend points at the live Render 
 
 ## Planned: V2
 
-- Full text extraction from document files, including OCR for scanned documents
 - Full text search across document contents, not just titles
-- Status detection expanded beyond Наредби
-- More resilient full archive scraping for Решения, to handle the occasional timeout without requiring a manual rerun
 
 ## Project Structure
 
