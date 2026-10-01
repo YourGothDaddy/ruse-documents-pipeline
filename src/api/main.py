@@ -282,3 +282,12 @@ def get_topics():
         topics = cur.fetchall()
     conn.close()
     return topics
+
+@app.get("/api/tax-rates")
+def get_tax_rates():
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute("SELECT tax_type, rate, rate_unit, source_document, last_checked FROM tax_rates")
+        rows = cur.fetchall()
+    conn.close()
+    return {"tax_rates": rows}

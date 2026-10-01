@@ -370,6 +370,7 @@ async function loadQuality() {
     ${rateRow("Протоколи, номер на протокол", rates.protokoli_protocol_number, "Дял от документите в категория Протоколи, при които номерът е успешно извлечен, независимо дали е записан с цифра или изписан с дума.")}
   `;
 }
+
 async function loadTrends() {
   const res = await fetch(`${API_BASE}/api/trends/category-volume`);
   const data = await res.json();
@@ -402,6 +403,26 @@ async function loadTrends() {
       },
     },
   });
+}
+
+async function loadTaxRates() {
+  const res = await fetch(`${API_BASE}/api/tax-rates`);
+  const data = await res.json();
+
+  const propertyTax = data.tax_rates.find(t => t.tax_type === "property_tax");
+  if (!propertyTax) return;
+
+  const unitLabel = propertyTax.rate_unit === "per_mille" ? "‰" : propertyTax.rate_unit;
+  const lastChecked = new Date(propertyTax.last_checked).toLocaleDateString("bg-BG");
+
+  const statsDiv = document.getElementById("stats");
+  const card = document.createElement("div");
+  card.className = "stat-card";
+  card.innerHTML = `
+    <div class="stat-number">${propertyTax.rate}${unitLabel}</div>
+    <div class="stat-label">Данък сгради, последна проверка ${lastChecked}</div>
+  `;
+  statsDiv.appendChild(card);
 }
 
 function renderPagination(total) {
@@ -449,6 +470,7 @@ loadTopics();
 loadQuality();
 loadDocuments();
 loadTrends();
+loadTaxRates();
 </script>
 
 </body>
