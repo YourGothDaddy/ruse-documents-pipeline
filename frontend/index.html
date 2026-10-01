@@ -215,8 +215,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 
-//const API_BASE = "https://ruse-documents-pipeline.onrender.com";
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://ruse-documents-pipeline.onrender.com";
 
 let currentOffset = 0;
 const PAGE_SIZE = 50;
@@ -502,12 +501,11 @@ document.getElementById("dateFrom").addEventListener("change", () => { currentOf
 document.getElementById("dateTo").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
 document.getElementById("sortBy").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
 
-loadStats();
+loadStats().then(loadTaxRates);
 loadTopics();
 loadQuality();
 loadDocuments();
 loadTrends();
-loadTaxRates();
 loadTopicDistribution();
 </script>
 
