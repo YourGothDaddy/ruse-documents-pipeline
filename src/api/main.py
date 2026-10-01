@@ -181,13 +181,19 @@ def get_documents(
         cur.execute(f"SELECT COUNT(*) AS total {base_query}", params)
         total_count = cur.fetchone()["total"]
 
+        tiebreaker = (
+            f", documents.decision_number {sort_direction} NULLS LAST"
+            if sort_by == "publish_date"
+            else ""
+        )
+
         select_query = f"""
             SELECT documents.id, documents.title, categories.name AS category,
                    statuses.name AS status, documents.publish_date,
                    documents.file_url, documents.file_type, documents.detail_url,
                    documents.decision_number, documents.regulation_number, documents.protocol_number
             {base_query}
-            ORDER BY {sort_column} {sort_direction} NULLS LAST
+            ORDER BY {sort_column} {sort_direction} NULLS LAST{tiebreaker}
             LIMIT %s OFFSET %s
         """
         cur.execute(select_query, params + [limit, offset])
