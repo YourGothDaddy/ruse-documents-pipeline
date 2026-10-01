@@ -172,6 +172,10 @@
   <p id="trendsNote" style="font-size: 12px; color: #999; margin: 0 0 10px 0;"></p>
   <canvas id="trendsChart" height="100"></canvas>
 </div>
+<div class="trends-panel" id="topicsPanel" style="background: white; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
+  <h3 style="margin: 0 0 10px 0; font-size: 14px;">Разпределение по теми</h3>
+  <canvas id="topicsChart" height="80"></canvas>
+</div>
 
 <div class="filters">
   <input type="text" id="search" placeholder="Търсене по заглавие или съдържание...">
@@ -211,7 +215,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 
-const API_BASE = "https://ruse-documents-pipeline.onrender.com";
+//const API_BASE = "https://ruse-documents-pipeline.onrender.com";
+const API_BASE = "http://localhost:8000";
 
 let currentOffset = 0;
 const PAGE_SIZE = 50;
@@ -221,6 +226,14 @@ async function loadStats() {
   const data = await res.json();
 
   const statsDiv = document.getElementById("stats");
+  const mostActiveYear = data.by_year.reduce((max, y) => y.count > max.count ? y : max, data.by_year[0]);
+  const yearCard = document.createElement("div");
+  yearCard.className = "stat-card";
+  yearCard.innerHTML = `
+    <div class="stat-number">${mostActiveYear.year}</div>
+    <div class="stat-label">Най-активна година (${mostActiveYear.count} документа)</div>
+  `;
+  statsDiv.appendChild(yearCard);
   const noFileCount = data.by_file_type.find(f => f.file_type === "none")?.count || 0;
   const noFilePercent = ((noFileCount / data.total_documents) * 100).toFixed(1);
 
@@ -405,6 +418,30 @@ async function loadTrends() {
   });
 }
 
+async function loadTopicDistribution() {
+  const res = await fetch(`${API_BASE}/api/topics/distribution`);
+  const data = await res.json();
+
+  if (data.topics.length === 0) return;
+
+  new Chart(document.getElementById("topicsChart"), {
+    type: "bar",
+    data: {
+      labels: data.topics.map(t => t.name),
+      datasets: [{
+        data: data.topics.map(t => t.count),
+        backgroundColor: "#1a56db",
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true } },
+    },
+  });
+}
+
 async function loadTaxRates() {
   const res = await fetch(`${API_BASE}/api/tax-rates`);
   const data = await res.json();
@@ -471,6 +508,7 @@ loadQuality();
 loadDocuments();
 loadTrends();
 loadTaxRates();
+loadTopicDistribution();
 </script>
 
 </body>

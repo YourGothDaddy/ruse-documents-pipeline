@@ -283,6 +283,21 @@ def get_topics():
     conn.close()
     return topics
 
+@app.get("/api/topics/distribution")
+def get_topic_distribution():
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT topics.name, COUNT(*) AS count
+            FROM document_topics
+            JOIN topics ON document_topics.topic_id = topics.id
+            GROUP BY topics.name
+            ORDER BY count DESC
+        """)
+        rows = cur.fetchall()
+    conn.close()
+    return {"topics": rows}
+
 @app.get("/api/tax-rates")
 def get_tax_rates():
     conn = get_connection()
