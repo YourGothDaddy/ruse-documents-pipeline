@@ -7,6 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from urllib.parse import unquote
 
 CATEGORY_URL = "https://obs.ruse-bg.eu/document-category/{slug}/page/{page}/"
 RESHENIA_URL = "https://obs.ruse-bg.eu/category/решения/"
@@ -14,8 +15,16 @@ RESHENIA_URL = "https://obs.ruse-bg.eu/category/решения/"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 REQUEST_TIMEOUT = (10, 30)
 REQUEST_DELAY_SECONDS = 0.5
-MAX_PAGES = 1000
+MAX_PAGES = 2000
 KNOWN_PAGES_TO_STOP = 2
+
+NEWS_URL = "https://obs.ruse-bg.eu/news/page/{page}/"
+
+RESHENIA_CATEGORY_SLUGS = {
+    "решения",
+    "решения-от-мандат-2011-2015-г",
+    "решения-от-миналия-мандат",
+}
 
 
 def build_session():
@@ -167,6 +176,62 @@ def scrape_reshenia(session, known_urls=None):
         known_urls,
     )
 
+def parse_news_feed(html, source_url):
+    soup = BeautifulSoup(html, "html.parser")
+    documents = []
+
+    for article in soup.find_all("article"):
+        term_link = article.select_one("a.post__term-link")
+        if not term_link:
+            continue
+
+        href = term_link.get("href", "")
+        category_slug = unquote(href.rstrip("/").split("/")[-1])
+        if category_slug not in RESHENIA_CATEGORY_SLUGS:
+            continue
+
+        title_tag = article.select_one("h2.post__title a.post__title-link")
+        if not title_tag:
+            continue
+
+        date_tag = article.select_one("span.post__meta-date")
+
+        documents.append({
+            "title": title_tag.get_text(strip=True),
+            "detail_url": title_tag.get("href"),
+            "file_url": None,
+            "file_type": None,
+            "file_size_raw": None,
+            "category": "reshenia",
+            "publish_date_raw": date_tag.get_text(strip=True) if date_tag else None,
+            "source_url": source_url,
+        })
+
+    return documents
+
+
+def scrape_news_backfill(session, known_urls=None, start_page=1, end_page=1070):
+    documents = []
+
+    for page in range(start_page, end_page + 1):
+        url = "https://obs.ruse-bg.eu/news/" if page == 1 else NEWS_URL.format(page=page)
+        print(f"Scraping news backfill page {page}...")
+        html = get_page(session, url)
+
+        if html is None:
+            print(f"Page {page} returned 404, stopping")
+            break
+
+        page_documents = parse_news_feed(html, url)
+        documents.extend(page_documents)
+
+        time.sleep(REQUEST_DELAY_SECONDS)
+
+    if known_urls is not None:
+        new_count = sum(1 for doc in documents if doc["detail_url"] not in known_urls)
+        print(f"{new_count} of {len(documents)} matched Решения documents are new")
+
+    return documents
 
 def main(known_urls=None):
     session = build_session()

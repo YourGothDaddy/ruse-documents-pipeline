@@ -58,6 +58,7 @@ Real inconsistencies handled by the pipeline:
 - Topic tagging uses keyword matching, not machine learning, and only covers documents whose title or description contains one of a fixed set of Bulgarian phrases.
 - Full text search uses Postgres's generic text configuration rather than a Bulgarian-specific one, so it matches exact word forms without stemming.
 - The API allows requests from any origin, a deliberate simplification for a small public read only dataset.
+- Решения (council decisions) published before the site's current pagination structure covered roughly pre-2026 were not reachable through `/category/решения/`'s paginated feed, which exposes only about 1,070 pages. These were recovered via a one-time backfill from the site's general `/news/` feed, which includes historical Решения mixed with other content, filtered by category. 3,329 previously-missing decisions were recovered this way. Some very old decision titles lack a structured protocol/date suffix, so their protocol number and session date are null even though the decision number itself is parsed.
 
 ## Database Schema
 

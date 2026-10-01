@@ -1,4 +1,5 @@
 import json
+import os
 import glob
 import re
 import html
@@ -22,6 +23,11 @@ BULGARIAN_MONTHS = {
 
 RESHENIA_PATTERN = re.compile(
     r"№\s*(\d+)\s*Прието\s+с\s+Протокол\s*№\s*(\d+)\s*/\s*(\d{2})\.(\d{2})\.(\d{4})",
+    re.IGNORECASE
+)
+
+RESHENIA_NUMBER_ONLY_PATTERN = re.compile(
+    r"№\s*(\d+)",
     re.IGNORECASE
 )
 
@@ -90,16 +96,13 @@ def parse_date(raw_date, category_key):
     if not raw_date:
         return None
 
-    if category_key == "reshenia":
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
         try:
-            return datetime.strptime(raw_date, "%Y-%m-%d").date().isoformat()
+            return datetime.strptime(raw_date, fmt).date().isoformat()
         except ValueError:
-            return None
+            continue
 
-    try:
-        return datetime.strptime(raw_date, "%d/%m/%Y").date().isoformat()
-    except ValueError:
-        return None
+    return None
 
 
 def parse_file_size(raw_size):
@@ -144,19 +147,23 @@ def detect_status(title):
 
 def parse_reshenia_fields(title):
     match = RESHENIA_PATTERN.search(title)
-    if not match:
-        return None, None, None
+    if match:
+        decision_number = int(match.group(1))
+        protocol_number = int(match.group(2))
+        day, month, year = match.group(3), match.group(4), match.group(5)
 
-    decision_number = int(match.group(1))
-    protocol_number = int(match.group(2))
-    day, month, year = match.group(3), match.group(4), match.group(5)
+        try:
+            session_date = datetime.strptime(f"{day}.{month}.{year}", "%d.%m.%Y").date().isoformat()
+        except ValueError:
+            session_date = None
 
-    try:
-        session_date = datetime.strptime(f"{day}.{month}.{year}", "%d.%m.%Y").date().isoformat()
-    except ValueError:
-        session_date = None
+        return decision_number, protocol_number, session_date
 
-    return decision_number, protocol_number, session_date
+    number_only_match = RESHENIA_NUMBER_ONLY_PATTERN.search(title)
+    if number_only_match:
+        return int(number_only_match.group(1)), None, None
+
+    return None, None, None
 
 
 def parse_naredba_number(title):
@@ -297,7 +304,12 @@ def main(input_path=None):
     print(f"Documents with at least one topic: {tagged_count}/{len(transformed)}")
     print(f"Documents with at least one law reference: {with_law_refs}/{len(transformed)}")
 
-    output_path = input_path.replace("data/raw/scrape_", "data/processed/clean_")
+    input_filename = os.path.basename(input_path)
+    timestamp_match = re.search(r"\d{8}_\d{6}", input_filename)
+    if not timestamp_match:
+        raise ValueError(f"Could not find a timestamp in input filename: {input_filename}")
+    output_filename = f"clean_{timestamp_match.group(0)}.json"
+    output_path = os.path.join("data/processed", output_filename)
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(transformed, f, ensure_ascii=False, indent=2)
