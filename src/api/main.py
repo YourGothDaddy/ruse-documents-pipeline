@@ -104,7 +104,34 @@ def get_category_volume():
         "categories": {cat: [counts[y] for y in years] for cat, counts in by_category.items()},
         "excluded_missing_date": missing_date_count,
     }
-    
+
+@app.get("/api/trends/repeal-rate")
+def get_repeal_rate():
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT EXTRACT(YEAR FROM documents.publish_date)::int AS year,
+                   COUNT(*) FILTER (WHERE statuses.name = 'repealed') AS repealed,
+                   COUNT(*) AS total
+            FROM documents
+            JOIN statuses ON documents.status_id = statuses.id
+            WHERE documents.publish_date IS NOT NULL
+            GROUP BY year
+            ORDER BY year
+        """)
+        rows = cur.fetchall()
+    conn.close()
+
+    return {
+        "years": [row["year"] for row in rows],
+        "repealed": [row["repealed"] for row in rows],
+        "total": [row["total"] for row in rows],
+        "repeal_rate_percent": [
+            round((row["repealed"] / row["total"]) * 100, 1) if row["total"] else 0
+            for row in rows
+        ],
+    }
+
 @app.get("/api/documents")
 def get_documents(
     category: str = None,
