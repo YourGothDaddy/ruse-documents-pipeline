@@ -116,150 +116,201 @@
   }
 
   .quality-panel {
-  background: white;
-  border-radius: 8px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-  font-size: 13px;
-  color: #444;
-}
-.quality-panel h3 {
-  margin: 0 0 10px 0;
-  font-size: 14px;
-}
-.quality-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 3px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-.quality-bar-track {
-  background: #eee;
-  border-radius: 4px;
-  height: 8px;
-  margin-top: 3px;
-  overflow: hidden;
-}
-.quality-bar-fill {
-  background: #1a56db;
-  height: 100%;
-}
+    background: white;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: #444;
+  }
+  .quality-panel h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+  }
+  .quality-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .quality-bar-track {
+    background: #eee;
+    border-radius: 4px;
+    height: 8px;
+    margin-top: 3px;
+    overflow: hidden;
+  }
+  .quality-bar-fill {
+    background: #1a56db;
+    height: 100%;
+  }
 
-.info-icon {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #ccc;
-  color: white;
-  font-size: 10px;
-  text-align: center;
-  line-height: 14px;
-  cursor: help;
-  margin-left: 4px;
-}
+  .info-icon {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ccc;
+    color: white;
+    font-size: 10px;
+    text-align: center;
+    line-height: 14px;
+    cursor: help;
+    margin-left: 4px;
+  }
+
+  .chart-panel {
+    background: white;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+  }
+  .chart-panel h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin: 24px 0 16px 0;
+    border-bottom: 2px solid #e0e0e0;
+  }
+  .tab-button {
+    background: none;
+    border: none;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #777;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+  }
+  .tab-button:hover {
+    background: #eef2ff;
+    color: #1a56db;
+  }
+  .tab-button.active {
+    color: #1a56db;
+    border-bottom: 2px solid #1a56db;
+  }
+  .tab-panel {
+    display: none;
+  }
+  .tab-panel.active {
+    display: block;
+  }
+  .tab-loading {
+    text-align: center;
+    color: #999;
+    padding: 30px 0;
+    font-size: 13px;
+  }
 </style>
 </head>
 <body>
 
 <h1>Документи на Община Русе</h1>
 
-<div class="stats" id="stats"></div>
-<div id="yearBreakdown" class="year-breakdown"></div>
-<div id="qualityPanel" class="quality-panel"></div>
-<div class="trends-panel" id="trendsPanel" style="background: white; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
-  <h3 style="margin: 0 0 10px 0; font-size: 14px;">Документи по категория през годините</h3>
-  <p id="trendsNote" style="font-size: 12px; color: #999; margin: 0 0 10px 0;"></p>
-  <canvas id="trendsChart" height="100"></canvas>
-</div>
-<div class="trends-panel" id="topicsPanel" style="background: white; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
-  <h3 style="margin: 0 0 10px 0; font-size: 14px;">Разпределение по теми</h3>
-  <canvas id="topicsChart" height="80"></canvas>
-</div>
-<div class="trends-panel" id="fileTypesPanel" style="background: white; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
-  <h3 style="margin: 0 0 10px 0; font-size: 14px;">Формати на прикачените файлове</h3>
-  <canvas id="fileTypesChart" height="80"></canvas>
-</div>
-<div class="trends-panel" id="lawRefsPanel" style="background: white; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
-  <h3 style="margin: 0 0 10px 0; font-size: 14px;">Най-често цитирани закони</h3>
-  <canvas id="lawRefsChart" height="80"></canvas>
+<div class="tabs" id="tabNav">
+  <button class="tab-button active" data-tab="documents">Документи</button>
+  <button class="tab-button" data-tab="statistics">Статистика</button>
+  <button class="tab-button" data-tab="analysis">Анализ</button>
+  <button class="tab-button" data-tab="quality">Качество на данните</button>
 </div>
 
-<div class="filters">
-  <input type="text" id="search" placeholder="Търсене по заглавие или съдържание...">
-  <select id="category"><option value="">Всички категории</option></select>
-  <select id="status">
-    <option value="">Всички статуси</option>
-    <option value="active">Активни</option>
-    <option value="repealed">Отменени</option>
-  </select>
-  <select id="fileType">
-    <option value="">Всички формати</option>
-    <option value="docx">DOCX</option>
-    <option value="doc">DOC</option>
-    <option value="pdf">PDF</option>
-  </select>
-  <select id="hasFile">
-    <option value="">Всички документи</option>
-    <option value="true">Само с прикачен файл</option>
-    <option value="false">Само без прикачен файл</option>
-  </select>
-  <select id="topic"><option value="">Всички теми</option></select>
-  <input type="date" id="dateFrom" title="От дата">
-  <input type="date" id="dateTo" title="До дата">
-  <select id="sortBy">
-    <option value="publish_date_desc">Дата, най-нови първо</option>
-    <option value="publish_date_asc">Дата, най-стари първо</option>
-    <option value="title_asc">Заглавие, А-Я</option>
-    <option value="title_desc">Заглавие, Я-А</option>
-    <option value="number_desc">Номер, низходящо</option>
-    <option value="number_asc">Номер, възходящо</option>
-  </select>
+<!-- TAB 1: Документи -->
+<div class="tab-panel active" id="tab-documents">
+  <div class="filters">
+    <input type="text" id="search" placeholder="Търсене по заглавие или съдържание...">
+    <select id="category"><option value="">Всички категории</option></select>
+    <select id="status">
+      <option value="">Всички статуси</option>
+      <option value="active">Активни</option>
+      <option value="repealed">Отменени</option>
+    </select>
+    <select id="fileType">
+      <option value="">Всички формати</option>
+      <option value="docx">DOCX</option>
+      <option value="doc">DOC</option>
+      <option value="pdf">PDF</option>
+    </select>
+    <select id="hasFile">
+      <option value="">Всички документи</option>
+      <option value="true">Само с прикачен файл</option>
+      <option value="false">Само без прикачен файл</option>
+    </select>
+    <select id="topic"><option value="">Всички теми</option></select>
+    <input type="date" id="dateFrom" title="От дата">
+    <input type="date" id="dateTo" title="До дата">
+    <select id="sortBy">
+      <option value="publish_date_desc">Дата, най-нови първо</option>
+      <option value="publish_date_asc">Дата, най-стари първо</option>
+      <option value="title_asc">Заглавие, А-Я</option>
+      <option value="title_desc">Заглавие, Я-А</option>
+      <option value="number_desc">Номер, низходящо</option>
+      <option value="number_asc">Номер, възходящо</option>
+    </select>
+  </div>
+
+  <div id="documents"></div>
+  <div id="pagination" style="display: flex; gap: 12px; align-items: center; justify-content: center; margin: 20px 0;"></div>
 </div>
 
-<div id="documents"></div>
-<div id="pagination" style="display: flex; gap: 12px; align-items: center; justify-content: center; margin: 20px 0;"></div>
+<!-- TAB 2: Статистика -->
+<div class="tab-panel" id="tab-statistics">
+  <div class="stats" id="stats"></div>
+  <div id="yearBreakdown" class="year-breakdown"></div>
+
+  <div class="chart-panel">
+    <h3>Документи по категория през годините</h3>
+    <p id="trendsNote" style="font-size: 12px; color: #999; margin: 0 0 10px 0;"></p>
+    <canvas id="trendsChart" height="100"></canvas>
+  </div>
+
+  <div class="chart-panel">
+    <h3>Формати на прикачените файлове</h3>
+    <canvas id="fileTypesChart" height="80"></canvas>
+  </div>
+</div>
+
+<!-- TAB 3: Анализ -->
+<div class="tab-panel" id="tab-analysis">
+  <div class="stats" id="analysisStats"></div>
+
+  <div class="chart-panel">
+    <h3>Разпределение по теми</h3>
+    <canvas id="topicsChart" height="80"></canvas>
+  </div>
+
+  <div class="chart-panel">
+    <h3>Най-често цитирани закони</h3>
+    <canvas id="lawRefsChart" height="80"></canvas>
+  </div>
+</div>
+
+<!-- TAB 4: Качество на данните -->
+<div class="tab-panel" id="tab-quality">
+  <div id="qualityPanel" class="quality-panel"></div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 
-//const API_BASE = "https://ruse-documents-pipeline.onrender.com";
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://ruse-documents-pipeline.onrender.com";
 
 let currentOffset = 0;
 const PAGE_SIZE = 50;
+
+const loadedTabs = new Set();
 
 async function loadStats() {
   const res = await fetch(`${API_BASE}/api/stats`);
   const data = await res.json();
 
   const statsDiv = document.getElementById("stats");
-  const mostActiveYear = data.by_year.reduce((max, y) => y.count > max.count ? y : max, data.by_year[0]);
-  const yearCard = document.createElement("div");
-  yearCard.className = "stat-card";
-  yearCard.innerHTML = `
-    <div class="stat-number">${mostActiveYear.year}</div>
-    <div class="stat-label">Най-активна година (${mostActiveYear.count} документа)</div>
-  `;
-  statsDiv.appendChild(yearCard);
-
-    new Chart(document.getElementById("fileTypesChart"), {
-    type: "bar",
-    data: {
-      labels: data.by_file_type.map(f => f.file_type === "none" ? "без файл" : f.file_type),
-      datasets: [{
-        data: data.by_file_type.map(f => f.count),
-        backgroundColor: "#1a7a1a",
-      }],
-    },
-    options: {
-      indexAxis: "y",
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { x: { beginAtZero: true } },
-    },
-  });
-
   const noFileCount = data.by_file_type.find(f => f.file_type === "none")?.count || 0;
   const noFilePercent = ((noFileCount / data.total_documents) * 100).toFixed(1);
 
@@ -282,6 +333,15 @@ async function loadStats() {
     </div>
   `;
 
+  const mostActiveYear = data.by_year.reduce((max, y) => y.count > max.count ? y : max, data.by_year[0]);
+  const yearCard = document.createElement("div");
+  yearCard.className = "stat-card";
+  yearCard.innerHTML = `
+    <div class="stat-number">${mostActiveYear.year}</div>
+    <div class="stat-label">Най-активна година (${mostActiveYear.count} документа)</div>
+  `;
+  statsDiv.appendChild(yearCard);
+
   const yearBreakdown = document.getElementById("yearBreakdown");
   yearBreakdown.innerHTML = data.by_year
     .map(y => `<span class="year-chip">${y.year}: ${y.count}</span>`)
@@ -294,6 +354,25 @@ async function loadStats() {
     option.textContent = `${cat.name} (${cat.count})`;
     categorySelect.appendChild(option);
   });
+
+  new Chart(document.getElementById("fileTypesChart"), {
+    type: "bar",
+    data: {
+      labels: data.by_file_type.map(f => f.file_type === "none" ? "без файл" : f.file_type),
+      datasets: [{
+        data: data.by_file_type.map(f => f.count),
+        backgroundColor: "#1a7a1a",
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true } },
+    },
+  });
+
+  return data;
 }
 
 async function loadTopics() {
@@ -444,6 +523,26 @@ async function loadTrends() {
   });
 }
 
+async function loadTaxRates() {
+  const res = await fetch(`${API_BASE}/api/tax-rates`);
+  const data = await res.json();
+
+  const propertyTax = data.tax_rates.find(t => t.tax_type === "property_tax");
+  if (!propertyTax) return;
+
+  const unitLabel = propertyTax.rate_unit === "per_mille" ? "‰" : propertyTax.rate_unit;
+  const lastChecked = new Date(propertyTax.last_checked).toLocaleDateString("bg-BG");
+
+  const statsDiv = document.getElementById("analysisStats");
+  const card = document.createElement("div");
+  card.className = "stat-card";
+  card.innerHTML = `
+    <div class="stat-number">${propertyTax.rate}${unitLabel}</div>
+    <div class="stat-label">Данък сгради, последна проверка ${lastChecked}</div>
+  `;
+  statsDiv.appendChild(card);
+}
+
 async function loadTopicDistribution() {
   const res = await fetch(`${API_BASE}/api/topics/distribution`);
   const data = await res.json();
@@ -468,24 +567,28 @@ async function loadTopicDistribution() {
   });
 }
 
-async function loadTaxRates() {
-  const res = await fetch(`${API_BASE}/api/tax-rates`);
+async function loadLawReferenceDistribution() {
+  const res = await fetch(`${API_BASE}/api/law-references/distribution`);
   const data = await res.json();
 
-  const propertyTax = data.tax_rates.find(t => t.tax_type === "property_tax");
-  if (!propertyTax) return;
+  if (data.law_references.length === 0) return;
 
-  const unitLabel = propertyTax.rate_unit === "per_mille" ? "‰" : propertyTax.rate_unit;
-  const lastChecked = new Date(propertyTax.last_checked).toLocaleDateString("bg-BG");
-
-  const statsDiv = document.getElementById("stats");
-  const card = document.createElement("div");
-  card.className = "stat-card";
-  card.innerHTML = `
-    <div class="stat-number">${propertyTax.rate}${unitLabel}</div>
-    <div class="stat-label">Данък сгради, последна проверка ${lastChecked}</div>
-  `;
-  statsDiv.appendChild(card);
+  new Chart(document.getElementById("lawRefsChart"), {
+    type: "bar",
+    data: {
+      labels: data.law_references.map(l => l.law_code),
+      datasets: [{
+        data: data.law_references.map(l => l.count),
+      backgroundColor: "#b00020",
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true } },
+    },
+  });
 }
 
 function renderPagination(total) {
@@ -518,30 +621,6 @@ function debounce(fn, delay) {
   };
 }
 
-async function loadLawReferenceDistribution() {
-  const res = await fetch(`${API_BASE}/api/law-references/distribution`);
-  const data = await res.json();
-
-  if (data.law_references.length === 0) return;
-
-  new Chart(document.getElementById("lawRefsChart"), {
-    type: "bar",
-    data: {
-      labels: data.law_references.map(l => l.law_code),
-      datasets: [{
-        data: data.law_references.map(l => l.count),
-        backgroundColor: "#b00020",
-      }],
-    },
-    options: {
-      indexAxis: "y",
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { x: { beginAtZero: true } },
-    },
-  });
-}
-
 document.getElementById("search").addEventListener("input", debounce(() => { currentOffset = 0; loadDocuments(); }, 300));
 document.getElementById("category").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
 document.getElementById("status").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
@@ -552,13 +631,37 @@ document.getElementById("dateFrom").addEventListener("change", () => { currentOf
 document.getElementById("dateTo").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
 document.getElementById("sortBy").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
 
-loadStats().then(loadTaxRates);
-loadTopics();
-loadQuality();
-loadDocuments();
-loadTrends();
-loadTopicDistribution();
-loadLawReferenceDistribution();
+// Tab switching, lazy-loads each tab's data on first visit only
+function activateTab(tabName) {
+  document.querySelectorAll(".tab-button").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.tab === tabName);
+  });
+  document.querySelectorAll(".tab-panel").forEach(panel => {
+    panel.classList.toggle("active", panel.id === `tab-${tabName}`);
+  });
+
+  if (loadedTabs.has(tabName)) return;
+  loadedTabs.add(tabName);
+
+  if (tabName === "documents") {
+    loadTopics().then(loadDocuments);
+  } else if (tabName === "statistics") {
+    loadStats().then(loadTrends);
+  } else if (tabName === "analysis") {
+    loadTaxRates();
+    loadTopicDistribution();
+    loadLawReferenceDistribution();
+  } else if (tabName === "quality") {
+    loadQuality();
+  }
+}
+
+document.querySelectorAll(".tab-button").forEach(btn => {
+  btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+});
+
+// Documents tab is visible by default, load it immediately
+activateTab("documents");
 </script>
 
 </body>
