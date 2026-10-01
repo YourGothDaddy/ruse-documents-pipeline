@@ -176,6 +176,14 @@
   <h3 style="margin: 0 0 10px 0; font-size: 14px;">Разпределение по теми</h3>
   <canvas id="topicsChart" height="80"></canvas>
 </div>
+<div class="trends-panel" id="fileTypesPanel" style="background: white; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
+  <h3 style="margin: 0 0 10px 0; font-size: 14px;">Формати на прикачените файлове</h3>
+  <canvas id="fileTypesChart" height="80"></canvas>
+</div>
+<div class="trends-panel" id="lawRefsPanel" style="background: white; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
+  <h3 style="margin: 0 0 10px 0; font-size: 14px;">Най-често цитирани закони</h3>
+  <canvas id="lawRefsChart" height="80"></canvas>
+</div>
 
 <div class="filters">
   <input type="text" id="search" placeholder="Търсене по заглавие или съдържание...">
@@ -215,7 +223,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 
-const API_BASE = "https://ruse-documents-pipeline.onrender.com";
+//const API_BASE = "https://ruse-documents-pipeline.onrender.com";
+const API_BASE = "http://localhost:8000";
 
 let currentOffset = 0;
 const PAGE_SIZE = 50;
@@ -233,6 +242,24 @@ async function loadStats() {
     <div class="stat-label">Най-активна година (${mostActiveYear.count} документа)</div>
   `;
   statsDiv.appendChild(yearCard);
+
+    new Chart(document.getElementById("fileTypesChart"), {
+    type: "bar",
+    data: {
+      labels: data.by_file_type.map(f => f.file_type === "none" ? "без файл" : f.file_type),
+      datasets: [{
+        data: data.by_file_type.map(f => f.count),
+        backgroundColor: "#1a7a1a",
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true } },
+    },
+  });
+
   const noFileCount = data.by_file_type.find(f => f.file_type === "none")?.count || 0;
   const noFilePercent = ((noFileCount / data.total_documents) * 100).toFixed(1);
 
@@ -491,6 +518,30 @@ function debounce(fn, delay) {
   };
 }
 
+async function loadLawReferenceDistribution() {
+  const res = await fetch(`${API_BASE}/api/law-references/distribution`);
+  const data = await res.json();
+
+  if (data.law_references.length === 0) return;
+
+  new Chart(document.getElementById("lawRefsChart"), {
+    type: "bar",
+    data: {
+      labels: data.law_references.map(l => l.law_code),
+      datasets: [{
+        data: data.law_references.map(l => l.count),
+        backgroundColor: "#b00020",
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true } },
+    },
+  });
+}
+
 document.getElementById("search").addEventListener("input", debounce(() => { currentOffset = 0; loadDocuments(); }, 300));
 document.getElementById("category").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
 document.getElementById("status").addEventListener("change", () => { currentOffset = 0; loadDocuments(); });
@@ -507,6 +558,7 @@ loadQuality();
 loadDocuments();
 loadTrends();
 loadTopicDistribution();
+loadLawReferenceDistribution();
 </script>
 
 </body>

@@ -298,6 +298,21 @@ def get_topic_distribution():
     conn.close()
     return {"topics": rows}
 
+@app.get("/api/law-references/distribution")
+def get_law_reference_distribution():
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT law_code, COUNT(*) AS count
+            FROM document_law_references
+            GROUP BY law_code
+            ORDER BY count DESC
+            LIMIT 15
+        """)
+        rows = cur.fetchall()
+    conn.close()
+    return {"law_references": rows}
+
 @app.get("/api/tax-rates")
 def get_tax_rates():
     conn = get_connection()
