@@ -351,6 +351,35 @@ def get_topic_distribution():
     conn.close()
     return {"topics": rows}
 
+@app.get("/api/topics/trend")
+def get_topic_trend():
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT EXTRACT(YEAR FROM documents.publish_date)::int AS year,
+                   topics.name AS topic,
+                   COUNT(*) AS count
+            FROM document_topics
+            JOIN topics ON document_topics.topic_id = topics.id
+            JOIN documents ON document_topics.document_id = documents.id
+            WHERE documents.publish_date IS NOT NULL
+            GROUP BY year, topic
+            ORDER BY year
+        """)
+        rows = cur.fetchall()
+    conn.close()
+
+    years = sorted({row["year"] for row in rows})
+    by_topic = {}
+    for row in rows:
+        by_topic.setdefault(row["topic"], {y: 0 for y in years})
+        by_topic[row["topic"]][row["year"]] = row["count"]
+
+    return {
+        "years": years,
+        "topics": {topic: [counts[y] for y in years] for topic, counts in by_topic.items()},
+    }
+
 @app.get("/api/law-references/distribution")
 def get_law_reference_distribution():
     conn = get_connection()
