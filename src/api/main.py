@@ -229,6 +229,26 @@ def get_documents(
     conn.close()
     return {"total": total_count, "limit": limit, "offset": offset, "documents": results}
 
+@app.get("/api/documents/sources")
+def get_document_sources():
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT
+                CASE
+                    WHEN source_url LIKE '%archiveobs.ruse-bg.eu%' THEN 'archive'
+                    WHEN source_url LIKE '%/news/%' THEN 'news_backfill'
+                    ELSE 'main_site'
+                END AS source,
+                COUNT(*) AS count
+            FROM documents
+            GROUP BY source
+            ORDER BY count DESC
+        """)
+        rows = cur.fetchall()
+    conn.close()
+    return {"sources": rows}
+
 @app.get("/api/documents/{document_id}")
 def get_document(document_id: int):
     conn = get_connection()

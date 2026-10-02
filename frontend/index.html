@@ -280,6 +280,12 @@
     <p style="font-size: 12px; color: #999; margin: 0 0 10px 0;">Базирано на статус, разпознат от заглавието на документа, вероятно подценява реалния дял отменени документи.</p>
     <canvas id="repealRateChart" height="80"></canvas>
   </div>
+
+  <div class="chart-panel">
+    <h3>Документи по източник</h3>
+    <p style="font-size: 12px; color: #999; margin: 0 0 10px 0;">Основен сайт, бекфил от /news/ (стари Решения) и архивния сайт archiveobs.ruse-bg.eu</p>
+    <canvas id="sourcesChart" height="80"></canvas>
+  </div>
 </div>
 
 <!-- TAB 3: Анализ -->
@@ -654,6 +660,34 @@ function renderPagination(total) {
   });
 }
 
+async function loadDocumentSources() {
+  const res = await fetch(`${API_BASE}/api/documents/sources`);
+  const data = await res.json();
+
+  const labels = {
+    main_site: "Основен сайт",
+    news_backfill: "Бекфил от /news/",
+    archive: "Архивен сайт",
+  };
+
+  new Chart(document.getElementById("sourcesChart"), {
+    type: "bar",
+    data: {
+      labels: data.sources.map(s => labels[s.source] || s.source),
+      datasets: [{
+        data: data.sources.map(s => s.count),
+        backgroundColor: ["#1a56db", "#1a7a1a", "#b00020"],
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true } },
+    },
+  });
+}
+
 function debounce(fn, delay) {
   let timeoutId;
   return (...args) => {
@@ -688,7 +722,7 @@ function activateTab(tabName) {
     loadCategories();
     loadTopics().then(loadDocuments);
   } else if (tabName === "statistics") {
-    loadStats().then(loadTrends).then(loadRepealRate);
+    loadStats().then(loadTrends).then(loadRepealRate).then(loadDocumentSources);
   } else if (tabName === "analysis") {
     loadTaxRates();
     loadTopicDistribution();
