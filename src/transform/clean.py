@@ -11,6 +11,14 @@ CATEGORY_MAP = {
     "protokoli": "Протоколи",
     "predlojenia": "Предложения",
     "privatizacia": "Приватизация",
+    "proektonaredbi": "Проекто наредби",
+    "protokoli_komisii": "Протоколи от комисии",
+    "reshenia_komisii": "Решения на комисии",
+    "otgovori": "Отговори",
+    "pisma": "Писма",
+    "dneven_red": "Дневен ред",
+    "prilojenia": "Приложения",
+    "drugi": "Други",
 }
 
 REPEALED_KEYWORDS = ["отменена", "отменен", "отменени"]
@@ -223,7 +231,16 @@ def transform_document(raw_doc):
 
     decision_number = protocol_number = regulation_number = session_date = None
 
-    if category == "reshenia":
+    if raw_doc.get("archive_source"):
+        archive_number = raw_doc.get("archive_number")
+        number_int = int(archive_number) if archive_number and archive_number.isdigit() else None
+        if category in ("reshenia", "reshenia_komisii"):
+            decision_number = number_int
+        elif category in ("protokoli", "protokoli_komisii"):
+            protocol_number = number_int
+        elif category in ("naredbi", "proektonaredbi"):
+            regulation_number = number_int
+    elif category == "reshenia":
         decision_number, protocol_number, session_date = parse_reshenia_fields(title)
     elif category == "naredbi":
         regulation_number = parse_naredba_number(title)
@@ -247,6 +264,7 @@ def transform_document(raw_doc):
         "session_date": session_date,
         "topics": assign_topics(title, raw_doc.get("description")),
         "law_references": extract_law_references(raw_doc.get("description")),
+        "possibly_incomplete_source": raw_doc.get("possibly_incomplete", False),
     }
 
 

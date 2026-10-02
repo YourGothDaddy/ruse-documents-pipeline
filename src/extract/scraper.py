@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib.parse import unquote
+import re
 
 CATEGORY_URL = "https://obs.ruse-bg.eu/document-category/{slug}/page/{page}/"
 RESHENIA_URL = "https://obs.ruse-bg.eu/category/решения/"
@@ -25,6 +26,66 @@ RESHENIA_CATEGORY_SLUGS = {
     "решения-от-мандат-2011-2015-г",
     "решения-от-миналия-мандат",
 }
+
+ARCHIVE_TYPE_MAP = {
+    "1002": "protokoli",           # Протокол
+    "1003": "protokoli",           # Протокол от заседание на ОС
+    "1004": "protokoli_komisii",   # Протокол от заседание на комисия
+    "1005": "reshenia",            # Решение на ОС
+    "1006": "reshenia_komisii",    # Решение на комисия
+    "1007": "otgovori",            # Отговор
+    "1008": "pisma",               # Писмо
+    "1009": "dneven_red",          # Дневен ред
+    "1010": "predlojenia",         # Предложение
+    "1011": "proektonaredbi",      # Проекто наредба
+    "1012": "naredbi",             # Наредба
+    "1013": "prilojenia",          # Приложение
+    "1014": "drugi",               # Друго
+}
+
+CATEGORY_NAME_MAP = {
+    "protokoli": "Протоколи",
+    "protokoli_komisii": "Протоколи от комисии",
+    "reshenia": "Решения",
+    "reshenia_komisii": "Решения на комисии",
+    "otgovori": "Отговори",
+    "pisma": "Писма",
+    "dneven_red": "Дневен ред",
+    "predlojenia": "Предложения",
+    "proektonaredbi": "Проекто наредби",
+    "naredbi": "Наредби",
+    "prilojenia": "Приложения",
+    "drugi": "Други",
+}
+
+ARCHIVE_URL = "https://archiveobs.ruse-bg.eu/"
+ARCHIVE_YEARS = range(2019, 2027)
+
+ARCHIVE_TYPE_MAP = {
+    "1002": "protokoli",
+    "1003": "protokoli",
+    "1004": "protokoli_komisii",
+    "1005": "reshenia",
+    "1006": "reshenia_komisii",
+    "1007": "otgovori",
+    "1008": "pisma",
+    "1009": "dneven_red",
+    "1010": "predlojenia",
+    "1011": "proektonaredbi",
+    "1012": "naredbi",
+    "1013": "prilojenia",
+    "1014": "drugi",
+}
+
+RESULT_TITLE_PATTERN = re.compile(
+    r"Наименование\s*:\s*<span>([^<]+)</span>", re.IGNORECASE
+)
+RESULT_ND_PATTERN = re.compile(
+    r"номер\s*/\s*дата\s*:\s*<span>([^<]+)</span>", re.IGNORECASE
+)
+RESULT_PDF_PATTERN = re.compile(
+    r'href="(https://archive\.ruse-bg\.eu/\?df=[^"]+)"'
+)
 
 
 def build_session():
@@ -233,6 +294,84 @@ def scrape_news_backfill(session, known_urls=None, start_page=1, end_page=1070):
 
     return documents
 
+def parse_number_date(nd_raw):
+    if not nd_raw or "/" not in nd_raw:
+        return None, None
+    number_part, date_part = nd_raw.rsplit("/", 1)
+    try:
+        datetime.strptime(date_part, "%Y-%m-%d")
+        return number_part.strip(), date_part.strip()
+    except ValueError:
+        return number_part.strip(), None
+
+
+def parse_archive_results(html, category_key, year, type_id):
+    result_blocks = html.split('<div class="result">')[1:]
+    documents = []
+
+    for block in result_blocks:
+        title_match = RESULT_TITLE_PATTERN.search(block)
+        nd_match = RESULT_ND_PATTERN.search(block)
+        pdf_match = RESULT_PDF_PATTERN.search(block)
+
+        if not title_match:
+            continue
+
+        title = title_match.group(1).strip()
+        nd_raw = nd_match.group(1).strip() if nd_match else None
+        number_part, date_part = parse_number_date(nd_raw)
+        pdf_url = pdf_match.group(1) if pdf_match else None
+
+        documents.append({
+            "title": title,
+            "detail_url": pdf_url,
+            "file_url": pdf_url,
+            "file_type": "pdf" if pdf_url else None,
+            "file_size_raw": None,
+            "category": category_key,
+            "publish_date_raw": date_part,
+            "source_url": f"{ARCHIVE_URL}?year={year}&type={type_id}",
+            "archive_number": number_part,
+            "archive_source": True,
+        })
+
+    return documents, len(result_blocks)
+
+
+def scrape_archive(session, known_urls=None):
+    documents = []
+    capped_combos = []
+
+    session.get(ARCHIVE_URL, timeout=REQUEST_TIMEOUT)
+
+    for year in ARCHIVE_YEARS:
+        for type_id, category_key in ARCHIVE_TYPE_MAP.items():
+            print(f"Searching archive: year={year} type={type_id}...")
+            response = session.post(
+                ARCHIVE_URL,
+                data={"q": "", "year": str(year), "type": type_id},
+                timeout=REQUEST_TIMEOUT,
+            )
+            results, count = parse_archive_results(response.text, category_key, year, type_id)
+
+            is_capped = count == 10
+            for doc in results:
+                doc["possibly_incomplete"] = is_capped
+
+            if is_capped:
+                capped_combos.append((year, type_id, category_key))
+                print(f"  CAPPED at 10 results, likely incomplete")
+
+            documents.extend(results)
+            time.sleep(REQUEST_DELAY_SECONDS)
+
+    if known_urls is not None:
+        new_count = sum(1 for d in documents if d["detail_url"] not in known_urls)
+        print(f"{new_count} of {len(documents)} archive documents are new")
+
+    print(f"{len(capped_combos)} of {len(ARCHIVE_YEARS) * len(ARCHIVE_TYPE_MAP)} year/type combinations hit the cap")
+    return documents, capped_combos
+    
 def main(known_urls=None):
     session = build_session()
     results = []

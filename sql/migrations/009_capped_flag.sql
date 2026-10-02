@@ -1,0 +1,1 @@
+ALTER TABLE documents ADD COLUMN possibly_incomplete_source BOOLEAN NOT NULL DEFAULT FALSE;

@@ -31,9 +31,10 @@ def upsert_document(conn, doc, category_map, status_map, topic_map):
                 title, category_id, status_id, publish_date,
                 file_url, file_type, file_size_kb, source_url,
                 detail_url, description,
-                decision_number, protocol_number, regulation_number, session_date
+                decision_number, protocol_number, regulation_number, session_date,
+                possibly_incomplete_source
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (detail_url) DO UPDATE SET
                 title = EXCLUDED.title,
                 category_id = EXCLUDED.category_id,
@@ -48,6 +49,7 @@ def upsert_document(conn, doc, category_map, status_map, topic_map):
                 protocol_number = EXCLUDED.protocol_number,
                 regulation_number = EXCLUDED.regulation_number,
                 session_date = EXCLUDED.session_date,
+                possibly_incomplete_source = EXCLUDED.possibly_incomplete_source,
                 scraped_at = NOW()
             RETURNING id
         """, (
@@ -55,7 +57,8 @@ def upsert_document(conn, doc, category_map, status_map, topic_map):
             doc["file_url"], doc["file_type"], doc["file_size_kb"], doc["source_url"],
             doc["detail_url"], doc.get("description"),
             doc.get("decision_number"), doc.get("protocol_number"),
-            doc.get("regulation_number"), doc.get("session_date")
+            doc.get("regulation_number"), doc.get("session_date"),
+            doc.get("possibly_incomplete_source", False)
         ))
         document_id = cur.fetchone()["id"]
 
