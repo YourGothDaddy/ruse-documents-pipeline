@@ -208,6 +208,34 @@
     padding: 30px 0;
     font-size: 13px;
   }
+
+    input[type="checkbox"] {
+    width: auto;
+    padding: 0;
+    margin-right: 6px;
+  }
+  .fulltext-toggle {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    color: #444;
+    padding: 0 6px;
+  }
+  .fulltext-toggle small {
+    color: #999;
+    margin-left: 4px;
+  }
+  .snippet {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #444;
+    line-height: 1.5;
+  }
+  .snippet mark {
+    background: #fff3b0;
+    padding: 0 2px;
+    border-radius: 2px;
+  }
 </style>
 </head>
 <body>
@@ -253,6 +281,11 @@
       <option value="number_desc">Номер, низходящо</option>
       <option value="number_asc">Номер, възходящо</option>
     </select>
+        <label class="fulltext-toggle">
+      <input type="checkbox" id="fullText">
+      Търсене в текста
+      <small>(засега само решения)</small>
+    </label>
   </div>
 
   <div id="documents"></div>
@@ -415,6 +448,16 @@ async function loadTopics() {
   });
 }
 
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[c]);
+}
+
+function renderSnippet(raw) {
+  return escapeHtml(raw).replace(/⟦/g, "<mark>").replace(/⟧/g, "</mark>");
+}
+
 async function loadDocuments() {
   const search = document.getElementById("search").value;
   const category = document.getElementById("category").value;
@@ -440,6 +483,9 @@ async function loadDocuments() {
   params.append("sort_order", sortOrder);
   params.append("limit", PAGE_SIZE);
   params.append("offset", currentOffset);
+
+  const fullText = document.getElementById("fullText").checked;
+  if (fullText && search) params.append("include_full_text", "true");
 
   const res = await fetch(`${API_BASE}/api/documents?${params}`);
   const data = await res.json();
@@ -467,6 +513,10 @@ async function loadDocuments() {
       ? `<a href="${doc.detail_url}" target="_blank" class="document-title-link">${doc.title}</a>`
       : doc.title;
 
+    const snippetHtml = doc.snippet
+    ? `<div class="snippet">${renderSnippet(doc.snippet)}</div>`
+    : "";
+
     div.innerHTML = `
       <div class="document-title">${titleHtml}</div>
       <div class="document-meta">
@@ -475,7 +525,9 @@ async function loadDocuments() {
         <span class="${statusClass}">${statusLabel}</span>
         ${fileLink}
       </div>
+      ${snippetHtml}
     `;
+
     container.appendChild(div);
   });
 
@@ -693,6 +745,10 @@ function renderPagination(total) {
   document.getElementById("nextPage").addEventListener("click", () => {
     currentOffset += PAGE_SIZE;
     loadDocuments();
+  });
+
+  document.getElementById("fullText").addEventListener("change", () => { 
+    currentOffset = 0; loadDocuments(); 
   });
 }
 

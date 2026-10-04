@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import date, timedelta
+import re
 
 from src.api.db import get_connection
 
@@ -12,6 +13,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+WORD_PATTERN = re.compile(r"\w+", re.UNICODE)
+
+# ⟦ and ⟧ are sentinel markers, not HTML. The frontend escapes the snippet
+# text first and then swaps these for <mark> tags, so raw page text from the
+# source site is never injected as HTML.
+HEADLINE_OPTIONS = "StartSel=⟦, StopSel=⟧, MaxFragments=2, MinWords=10, MaxWords=25"
+
+
+def build_prefix_tsquery(search):
+    """
+    Turn free text into a prefix tsquery, e.g. "бюджет 2025" -> "бюджет:* & 2025:*".
+
+    'simple' has no Bulgarian stemmer, so exact word forms would miss most
+    matches. Prefix matching recovers many inflected forms without a stemmer.
+    Only \\w tokens are kept, so the output is always safe for to_tsquery.
+    """
+    tokens = WORD_PATTERN.findall(search or "")
+    if not tokens:
+        return None
+    return " & ".join(f"{token}:*" for token in tokens)
 
 
 @app.get("/api/stats")
@@ -137,6 +160,7 @@ def get_documents(
     category: str = None,
     status: str = None,
     search: str = None,
+    include_full_text: bool = False,
     file_type: str = None,
     has_file: bool = None,
     date_from: str = None,
@@ -145,9 +169,12 @@ def get_documents(
     sort_by: str = "publish_date",
     sort_order: str = "desc",
     limit: int = 50,
-    offset: int = 0
+    offset: int = 0,
 ):
     conn = get_connection()
+
+    tsquery = build_prefix_tsquery(search) if include_full_text else None
+    use_full_text = tsquery is not None
 
     base_query = """
         FROM documents
@@ -166,9 +193,21 @@ def get_documents(
         params.append(status)
 
     if search:
-        base_query += " AND (documents.title ILIKE %s OR documents.search_vector @@ plainto_tsquery('simple', %s))"
-        params.append(f"%{search}%")
-        params.append(search)
+        if use_full_text:
+            base_query += """
+                AND (
+                    documents.title ILIKE %s
+                    OR documents.search_vector @@ to_tsquery('simple', %s)
+                    OR documents.full_text_search_vector @@ to_tsquery('simple', %s)
+                )
+            """
+            params.extend([f"%{search}%", tsquery, tsquery])
+        else:
+            base_query += """
+                AND (documents.title ILIKE %s
+                     OR documents.search_vector @@ plainto_tsquery('simple', %s))
+            """
+            params.extend([f"%{search}%", search])
 
     if file_type:
         base_query += " AND documents.file_type = %s"
@@ -225,6 +264,26 @@ def get_documents(
         """
         cur.execute(select_query, params + [limit, offset])
         results = cur.fetchall()
+
+        # Snippets are computed only for the current page, in a second query,
+        # so the headline is never built for every match.
+        for row in results:
+            row["snippet"] = None
+
+        if use_full_text and results:
+            cur.execute(
+                """
+                SELECT id,
+                       ts_headline('simple', full_text, to_tsquery('simple', %s), %s) AS snippet
+                FROM documents
+                WHERE id = ANY(%s)
+                  AND full_text_search_vector @@ to_tsquery('simple', %s)
+                """,
+                (tsquery, HEADLINE_OPTIONS, [row["id"] for row in results], tsquery),
+            )
+            snippets = {row["id"]: row["snippet"] for row in cur.fetchall()}
+            for row in results:
+                row["snippet"] = snippets.get(row["id"])
 
     conn.close()
     return {"total": total_count, "limit": limit, "offset": offset, "documents": results}
