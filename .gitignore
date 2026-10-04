@@ -16,3 +16,5 @@ webserver_config.py
 .DS_Store.env.production
 backfill_log.txt
 archive_backfill_log.txt
+fulltext_log.txt
+fulltext_neon_log.txt

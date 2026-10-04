@@ -60,6 +60,7 @@ Real inconsistencies handled by the pipeline:
 - The API allows requests from any origin, a deliberate simplification for a small public read only dataset.
 - Решения (council decisions) published before the site's current pagination structure covered roughly pre-2026 were not reachable through `/category/решения/`'s paginated feed, which exposes only about 1,070 pages. These were recovered via a one-time backfill from the site's general `/news/` feed, which includes historical Решения mixed with other content, filtered by category. 3,329 previously-missing decisions were recovered this way. Some very old decision titles lack a structured protocol/date suffix, so their protocol number and session date are null even though the decision number itself is parsed.
 - A separate legacy site, archiveobs.ruse-bg.eu, holds additional documents from 2019 onward across several document types not otherwise tracked (committee protocols and decisions, letters, agendas, draft ordinances, attachments). Its search interface caps any single year/document-type query at 10 results with no pagination, so combinations with more than 10 real documents are only partially recovered. These are loaded but flagged via the `possibly_incomplete_source` column so they can be distinguished from fully recovered data. 47 documents were recovered this way, 40 of them from capped, likely-incomplete combinations.
+- Full decision text for Решения is scraped directly from each document's own detail page (not from attached files, since over 99% of Решения have none) and stored in `documents.full_text`. 7,295 of 7,320 Решения (99.7%) were successfully captured; the remaining 25 returned no content, likely deleted or malformed posts on the source site, and were left as-is rather than investigated further. Full text has not yet been collected for other categories (Наредби, Протоколи, Предложения, Приватизация).
 
 ## Database Schema
 
@@ -150,7 +151,7 @@ Open `http://localhost:5500`. By default the frontend points at the live Render 
 
 ## Planned: V2
 
-- Full text search across document contents, not just titles
+- Expose full-text search over the now-stored decision text in the API and dashboard (the text itself is already scraped, see below; only the search feature is still pending)
 
 ## Project Structure
 
