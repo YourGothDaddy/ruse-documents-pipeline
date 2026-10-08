@@ -350,8 +350,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 
-const API_BASE = "https://ruse-documents-pipeline.onrender.com";
-//const API_BASE = "http://localhost:8000";
+//const API_BASE = "https://ruse-documents-pipeline.onrender.com";
+const API_BASE = "http://localhost:8000";
 
 let currentOffset = 0;
 const PAGE_SIZE = 50;
@@ -506,12 +506,12 @@ async function loadDocuments() {
     const statusClass = doc.status === "repealed" ? "status-repealed" : "status-active";
     const statusLabel = doc.status === "repealed" ? "Отменена" : "Активна";
     const fileLink = doc.file_url
-      ? `<a href="${doc.file_url}" target="_blank" class="download-link">Изтегли файл (${doc.file_type})</a>`
+      ? `<a href="${escapeHtml(doc.file_url)}" target="_blank" class="download-link">Изтегли файл (${escapeHtml(doc.file_type || "")})</a>`
       : `<span class="no-file">Няма прикачен файл</span>`;
 
     const titleHtml = doc.detail_url
-      ? `<a href="${doc.detail_url}" target="_blank" class="document-title-link">${doc.title}</a>`
-      : doc.title;
+      ? `<a href="${escapeHtml(doc.detail_url)}" target="_blank" class="document-title-link">${escapeHtml(doc.title)}</a>`
+      : escapeHtml(doc.title);
 
     const snippetHtml = doc.snippet
     ? `<div class="snippet">${renderSnippet(doc.snippet)}</div>`
@@ -520,8 +520,8 @@ async function loadDocuments() {
     div.innerHTML = `
       <div class="document-title">${titleHtml}</div>
       <div class="document-meta">
-        <span>${doc.category}</span>
-        <span>${doc.publish_date || "Няма дата"}</span>
+        <span>${escapeHtml(doc.category)}</span>
+        <span>${doc.publish_date ? escapeHtml(doc.publish_date) : "Няма дата"}</span>
         <span class="${statusClass}">${statusLabel}</span>
         ${fileLink}
       </div>
@@ -557,6 +557,17 @@ async function loadQuality() {
     ? `${data.last_run.status === "success" ? "Успешно" : "Неуспешно"} на ${new Date(data.last_run.started_at).toLocaleString("bg-BG")}`
     : "Няма данни";
 
+  const coverageRow = (row) => {
+    const pct = row.total ? ((row.classified / row.total) * 100).toFixed(0) : 0;
+    return `
+      <div class="quality-row">
+        <span>${escapeHtml(row.category)}</span>
+        <span>${row.classified}/${row.total} (${pct}%)</span>
+      </div>
+      <div class="quality-bar-track"><div class="quality-bar-fill" style="width:${pct}%"></div></div>
+    `;
+  };
+
   panel.innerHTML = `
     <h3>Качество на данните</h3>
     <div class="quality-row"><span>Последно обновяване</span><span>${lastRun}</span></div>
@@ -566,6 +577,8 @@ async function loadQuality() {
     ${rateRow("Решения, номер на решение", rates.reshenia_decision_number, "Дял от документите в категория Решения, при които номерът на решението е успешно извлечен от заглавието.")}
     ${rateRow("Наредби, номер на наредба", rates.naredbi_regulation_number, "Дял от документите в категория Наредби, при които номерът на наредбата е успешно извлечен от заглавието. Някои по-стари наредби нямат номер в заглавието.")}
     ${rateRow("Протоколи, номер на протокол", rates.protokoli_protocol_number, "Дял от документите в категория Протоколи, при които номерът е успешно извлечен, независимо дали е записан с цифра или изписан с дума.")}
+    <h3 style="margin-top: 24px;">Покритие по теми по категория${info("Дял от документите във всяка категория, на които е присвоена конкретна тема (напр. Образование, Транспорт), а не общата \u201eДруги теми\u201c. Протоколите умишлено не се категоризират по тема, тъй като един протокол обикновено обхваща много разнородни точки от дневния ред — затова винаги показват 0%.")}</h3>
+    ${data.topic_coverage_by_category.map(coverageRow).join("")}
   `;
 }
 

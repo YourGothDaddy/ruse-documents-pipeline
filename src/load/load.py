@@ -16,12 +16,9 @@ def get_lookup_maps(conn):
         cur.execute("SELECT id, name FROM statuses")
         status_map = {row["name"]: row["id"] for row in cur.fetchall()}
 
-        cur.execute("SELECT id, name FROM topics")
-        topic_map = {row["name"]: row["id"] for row in cur.fetchall()}
+    return category_map, status_map
 
-    return category_map, status_map, topic_map
-
-def upsert_document(conn, doc, category_map, status_map, topic_map):
+def upsert_document(conn, doc, category_map, status_map):
     category_id = category_map.get(doc["category_name"])
     status_id = status_map.get(doc["status_name"])
 
@@ -62,15 +59,6 @@ def upsert_document(conn, doc, category_map, status_map, topic_map):
         ))
         document_id = cur.fetchone()["id"]
 
-        cur.execute("DELETE FROM document_topics WHERE document_id = %s", (document_id,))
-        for topic_name in doc.get("topics", []):
-            topic_id = topic_map.get(topic_name)
-            if topic_id:
-                cur.execute(
-                    "INSERT INTO document_topics (document_id, topic_id) VALUES (%s, %s)",
-                    (document_id, topic_id)
-                )
-
         cur.execute("DELETE FROM document_law_references WHERE document_id = %s", (document_id,))
         for law_code in doc.get("law_references", []):
             cur.execute(
@@ -92,7 +80,7 @@ def main(input_path=None):
     run_id = start_run(conn)
 
     try:
-        category_map, status_map, topic_map = get_lookup_maps(conn)
+        category_map, status_map = get_lookup_maps(conn)
 
         new_count = 0
         for doc in documents:
@@ -103,7 +91,7 @@ def main(input_path=None):
                 is_new = cur.fetchone() is None
             if is_new:
                 new_count += 1
-            upsert_document(conn, doc, category_map, status_map, topic_map)
+            upsert_document(conn, doc, category_map, status_map)
 
         conn.commit()
         finish_run(conn, run_id, len(documents), new_count)

@@ -371,6 +371,19 @@ def get_quality():
         cur.execute("SELECT COUNT(DISTINCT document_id) AS tagged FROM document_topics")
         topics_tagged = cur.fetchone()["tagged"]
 
+        cur.execute("""
+            SELECT c.name AS category,
+                   COUNT(*) FILTER (WHERE t.name IS DISTINCT FROM 'Други теми') AS classified,
+                   COUNT(*) AS total
+            FROM documents d
+            JOIN categories c ON c.id = d.category_id
+            LEFT JOIN document_topics dt ON dt.document_id = d.id
+            LEFT JOIN topics t ON t.id = dt.topic_id
+            GROUP BY c.name
+            ORDER BY c.name
+        """)
+        topic_coverage_by_category = cur.fetchall()
+
     conn.close()
 
     return {
@@ -384,6 +397,7 @@ def get_quality():
         "missing_publish_date": missing_dates,
         "documents_without_file": no_file,
         "documents_with_topics": topics_tagged,
+        "topic_coverage_by_category": topic_coverage_by_category,
     }
 
 @app.get("/api/topics")

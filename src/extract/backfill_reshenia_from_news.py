@@ -2,9 +2,10 @@ import json
 import os
 from datetime import datetime
 
-from scraper import build_session, scrape_news_backfill
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
+from src.extract.scraper import build_session, scrape_news_backfill
 from src.db.connection import get_known_detail_urls
 
 

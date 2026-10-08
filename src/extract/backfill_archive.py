@@ -5,7 +5,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
-from scraper import build_session, scrape_archive
+from src.extract.scraper import build_session, scrape_archive
 from src.db.connection import get_known_detail_urls
 
 

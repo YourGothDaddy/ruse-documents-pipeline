@@ -404,7 +404,8 @@ if __name__ == "__main__":
     import sys
 
     if "incremental" in sys.argv[1:]:
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+        from src.db.connection import get_known_detail_urls
         from db.connection import get_known_detail_urls
 
         main(known_urls=get_known_detail_urls())

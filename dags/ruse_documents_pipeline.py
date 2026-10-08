@@ -11,6 +11,8 @@ sys.path.insert(0, os.path.join(PROJECT_ROOT, "src"))
 from extract.scraper import main as extract_main
 from transform.clean import main as transform_main
 from load.load import main as load_main
+from extract.fetch_full_text_all import main as fetch_full_text_main, DEFAULT_CATEGORIES
+from transform.classify_topics import main as classify_topics_main
 
 
 def run_extract(**context):
@@ -27,6 +29,13 @@ def run_transform(**context):
 def run_load(**context):
     processed_path = context["ti"].xcom_pull(key="processed_path", task_ids="transform")
     load_main(input_path=processed_path)
+
+
+def run_fetch_full_text(**context):
+    fetch_full_text_main(DEFAULT_CATEGORIES)
+
+def run_classify_topics(**context):
+    classify_topics_main(dry_run=False)
 
 
 def notify_failure(context):
@@ -63,4 +72,14 @@ with DAG(
         python_callable=run_load,
     )
 
-    extract_task >> transform_task >> load_task
+    fetch_full_text_task = PythonOperator(
+        task_id="fetch_full_text",
+        python_callable=run_fetch_full_text,
+    )
+
+    classify_topics_task = PythonOperator(
+        task_id="classify_topics",
+        python_callable=run_classify_topics,
+    )
+
+    extract_task >> transform_task >> load_task >> fetch_full_text_task >> classify_topics_task

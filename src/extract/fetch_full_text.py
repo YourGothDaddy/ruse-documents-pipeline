@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
-from scraper import build_session, get_page
+from src.extract.scraper import build_session, get_page
 from src.db.connection import get_connection
 
 MAX_WORKERS = 10
